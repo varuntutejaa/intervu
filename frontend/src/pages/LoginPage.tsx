@@ -47,7 +47,7 @@ export default function LoginPage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -95,7 +95,7 @@ export default function LoginPage({
             </p>
           </div>
 
-          <SocialAuthOptions />
+          <SocialAuthOptions role={role} />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <InputGroup

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
-import { resolveActiveRole } from "../lib/profiles.js";
+import { getRolesForSub, resolveActiveRole } from "../lib/profiles.js";
 
 export const oauthRouter = Router();
 
@@ -21,13 +21,22 @@ function loginErrorRedirect(res: import("express").Response, message: string) {
   res.redirect(`${PUBLIC_URL}/login?error=${encodeURIComponent(message)}`);
 }
 
-oauthRouter.get("/google/start", (_req, res) => {
+// Round-trips the role picked on the login screen through the provider via
+// the standard OAuth `state` param, so the callback can enforce it the same
+// way the Cognito login route does.
+function roleFromState(state: unknown): "candidate" | "recruiter" | undefined {
+  return state === "candidate" || state === "recruiter" ? state : undefined;
+}
+
+oauthRouter.get("/google/start", (req, res) => {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", GOOGLE_CLIENT_ID);
   url.searchParams.set("redirect_uri", `${PUBLIC_URL}/api/auth/google/callback`);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid email profile");
   url.searchParams.set("prompt", "select_account");
+  const role = roleFromState(req.query.role);
+  if (role) url.searchParams.set("state", role);
   res.redirect(url.toString());
 });
 
@@ -64,8 +73,18 @@ oauthRouter.get(
         tokenData.id_token,
       );
       const sub = `google:${claims.sub}`;
+      const role = roleFromState(req.query.state);
+      const roles = await getRolesForSub(sub);
+      if (role && roles.length > 0 && !roles.includes(role)) {
+        loginErrorRedirect(
+          res,
+          `This account isn't set up as a ${role}. It's registered as a ${roles.join(" and ")}.`,
+        );
+        return;
+      }
+
       req.session.user = { sub, email: claims.email ?? "", name: claims.name };
-      req.session.activeRole = (await resolveActiveRole(sub)) ?? undefined;
+      req.session.activeRole = role && roles.includes(role) ? role : ((await resolveActiveRole(sub)) ?? undefined);
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);
@@ -74,11 +93,13 @@ oauthRouter.get(
   }),
 );
 
-oauthRouter.get("/github/start", (_req, res) => {
+oauthRouter.get("/github/start", (req, res) => {
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", GITHUB_CLIENT_ID);
   url.searchParams.set("redirect_uri", `${PUBLIC_URL}/api/auth/github/callback`);
   url.searchParams.set("scope", "read:user user:email");
+  const role = roleFromState(req.query.role);
+  if (role) url.searchParams.set("state", role);
   res.redirect(url.toString());
 });
 
@@ -143,12 +164,22 @@ oauthRouter.get(
       }
 
       const sub = `github:${user.id}`;
+      const role = roleFromState(req.query.state);
+      const roles = await getRolesForSub(sub);
+      if (role && roles.length > 0 && !roles.includes(role)) {
+        loginErrorRedirect(
+          res,
+          `This account isn't set up as a ${role}. It's registered as a ${roles.join(" and ")}.`,
+        );
+        return;
+      }
+
       req.session.user = {
         sub,
         email,
         name: typeof user.name === "string" ? user.name : user.login,
       };
-      req.session.activeRole = (await resolveActiveRole(sub)) ?? undefined;
+      req.session.activeRole = role && roles.includes(role) ? role : ((await resolveActiveRole(sub)) ?? undefined);
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);

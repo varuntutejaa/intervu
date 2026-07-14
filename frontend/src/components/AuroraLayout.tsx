@@ -190,12 +190,19 @@ export function SocialButton({
 // provider's own login page and back to a callback that creates the same
 // kind of session cookie the Cognito login route does. Full page
 // navigations, not a popup, so there's no client-side token handling here.
-export function SocialAuthOptions() {
+//
+// `role` is only meaningful on the Login page — it's round-tripped through
+// the OAuth `state` param so the callback can reject signing into an
+// account that isn't actually set up as that role (see routes/oauth.ts).
+// Signup leaves it unset, since adding a new role to an existing account is
+// exactly what an unconstrained OAuth signup should allow.
+export function SocialAuthOptions({ role }: { role?: Role }) {
+  const suffix = role ? `?role=${role}` : "";
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
-        <SocialButton icon={GoogleLogo} label="Google" href="/api/auth/google/start" />
-        <SocialButton icon={GithubLogo} label="Github" href="/api/auth/github/start" />
+        <SocialButton icon={GoogleLogo} label="Google" href={`/api/auth/google/start${suffix}`} />
+        <SocialButton icon={GithubLogo} label="Github" href={`/api/auth/github/start${suffix}`} />
       </div>
 
       <div className="flex items-center">
