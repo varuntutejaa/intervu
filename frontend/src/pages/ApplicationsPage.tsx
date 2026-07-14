@@ -3,7 +3,7 @@ import type { Role } from "../components/AuroraLayout";
 import { NavBar } from "../components/LandingChrome";
 import type { NavUser } from "../components/LandingChrome";
 
-type ApplicationStatus = "Applied" | "Interviewing" | "Offer" | "Rejected";
+type ApplicationStatus = "Applied" | "Scheduled" | "Interviewing" | "Offer" | "Rejected";
 
 type Application = {
   id: number;
@@ -25,6 +25,7 @@ function formatAppliedOn(date: string) {
 
 const STATUS_STYLES: Record<ApplicationStatus, string> = {
   Applied: "bg-white/10 text-white/60",
+  Scheduled: "bg-sky-400/20 text-sky-300",
   Interviewing: "bg-amber-400/20 text-amber-300",
   Offer: "bg-emerald-400/20 text-emerald-300",
   Rejected: "bg-red-400/20 text-red-300",

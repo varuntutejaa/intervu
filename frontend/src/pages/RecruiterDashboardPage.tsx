@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Briefcase, Users, X } from "lucide-react";
-import type { Role } from "../components/AuroraLayout";
+import { Briefcase, Pencil, Users, X } from "lucide-react";
+import { InputGroup, SelectGroup, TextAreaGroup, type Role } from "../components/AuroraLayout";
 import { NavBar } from "../components/LandingChrome";
 import type { NavUser } from "../components/LandingChrome";
 
@@ -18,7 +18,28 @@ type Job = {
   skills: string[];
   application_deadline: string | null;
   job_code: string | null;
+  status: string;
 };
+
+type Stats = {
+  totalJobs: number;
+  openJobs: number;
+  totalApplicants: number;
+  byStatus: Record<string, number>;
+  jobs: { id: number; title: string; status: string; total: number; byStatus: Record<string, number> }[];
+};
+
+const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"].map((v) => ({
+  value: v,
+  label: v,
+}));
+const WORK_MODE_OPTIONS = ["Onsite", "Remote", "Hybrid"].map((v) => ({ value: v, label: v }));
+const JOB_EXPERIENCE_OPTIONS = [
+  { value: "Fresher", label: "Fresher" },
+  { value: "1-3 Years", label: "1–3 Years" },
+  { value: "3-5 Years", label: "3–5 Years" },
+  { value: "5-10 Years", label: "5–10 Years" },
+];
 
 type Applicant = {
   application_id: number;
@@ -38,7 +59,7 @@ type Applicant = {
   avatar_url: string | null;
 };
 
-const APPLICATION_STATUSES = ["Applied", "Interviewing", "Offer", "Rejected"];
+const APPLICATION_STATUSES = ["Applied", "Scheduled", "Interviewing", "Offer", "Rejected"];
 
 function formatSalary(min: number | null, max: number | null) {
   if (!min && !max) return null;
@@ -81,8 +102,10 @@ export default function RecruiterDashboardPage({
   const [jobs, setJobs] = useState<Job[]>([]);
   const [status, setStatus] = useState<"loading" | "error" | "ready">("loading");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
 
-  useEffect(() => {
+  const loadJobs = () => {
     fetch("/api/jobs/mine", { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
@@ -93,7 +116,31 @@ export default function RecruiterDashboardPage({
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
+  };
+
+  const loadStats = () => {
+    fetch("/api/jobs/stats", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: Stats | null) => setStats(data))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadJobs();
+    loadStats();
   }, []);
+
+  const handleToggleStatus = async (job: Job) => {
+    const nextStatus = job.status === "open" ? "closed" : "open";
+    await fetch(`/api/jobs/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    loadJobs();
+    loadStats();
+  };
 
   return (
     <div className="min-h-screen w-full bg-[#141414]">
@@ -121,6 +168,27 @@ export default function RecruiterDashboardPage({
         <p className="mt-2 text-sm text-white/40">
           Post new roles and browse candidates looking for their next job.
         </p>
+
+        {stats && (
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-2xl font-bold text-white">{stats.openJobs}</p>
+              <p className="text-xs text-white/40">Open jobs ({stats.totalJobs} total)</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-2xl font-bold text-white">{stats.totalApplicants}</p>
+              <p className="text-xs text-white/40">Total applicants</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-2xl font-bold text-white">{stats.byStatus.Interviewing ?? 0}</p>
+              <p className="text-xs text-white/40">Interviewing</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-2xl font-bold text-white">{stats.byStatus.Offer ?? 0}</p>
+              <p className="text-xs text-white/40">Offers made</p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <button
@@ -176,12 +244,15 @@ export default function RecruiterDashboardPage({
             <div className="mt-4 space-y-3">
               {jobs.map((job) => {
                 const salary = formatSalary(job.salary_min, job.salary_max);
+                const isClosed = job.status === "closed";
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={job.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelectedJob(job)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 sm:flex sm:items-center sm:justify-between"
+                    onKeyDown={(e) => e.key === "Enter" && setSelectedJob(job)}
+                    className="w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10 sm:flex sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-baseline gap-x-2">
@@ -189,6 +260,15 @@ export default function RecruiterDashboardPage({
                         {job.job_code && (
                           <span className="text-xs text-white/30">#{job.job_code}</span>
                         )}
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                            isClosed
+                              ? "bg-red-400/20 text-red-300"
+                              : "bg-emerald-400/20 text-emerald-300"
+                          }`}
+                        >
+                          {job.status}
+                        </span>
                       </div>
                       <p className="text-sm text-white/40">
                         {job.company} · {job.location}
@@ -211,10 +291,31 @@ export default function RecruiterDashboardPage({
                         </p>
                       )}
                     </div>
-                    {salary && (
-                      <p className="mt-2 shrink-0 text-sm text-white/60 sm:mt-0">{salary}</p>
-                    )}
-                  </button>
+                    <div className="mt-3 flex shrink-0 items-center gap-2 sm:mt-0">
+                      {salary && <p className="text-sm text-white/60">{salary}</p>}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingJob(job);
+                        }}
+                        aria-label="Edit job"
+                        className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStatus(job);
+                        }}
+                        className="h-8 shrink-0 rounded-full border border-white/10 px-3 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                      >
+                        {isClosed ? "Reopen" : "Close"}
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -225,6 +326,192 @@ export default function RecruiterDashboardPage({
       {selectedJob && (
         <ApplicantsModal job={selectedJob} onClose={() => setSelectedJob(null)} />
       )}
+
+      {editingJob && (
+        <EditJobModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onSaved={() => {
+            setEditingJob(null);
+            loadJobs();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditJobModal({
+  job,
+  onClose,
+  onSaved,
+}: {
+  job: Job;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(job.title);
+  const [company, setCompany] = useState(job.company);
+  const [location, setLocation] = useState(job.location);
+  const [jobType, setJobType] = useState(job.job_type);
+  const [workMode, setWorkMode] = useState(job.work_mode);
+  const [experience, setExperience] = useState(job.experience);
+  const [salaryMin, setSalaryMin] = useState(job.salary_min?.toString() ?? "");
+  const [salaryMax, setSalaryMax] = useState(job.salary_max?.toString() ?? "");
+  const [description, setDescription] = useState(job.description ?? "");
+  const [skills, setSkills] = useState(job.skills.join(", "));
+  const [applicationDeadline, setApplicationDeadline] = useState(
+    job.application_deadline ? job.application_deadline.slice(0, 10) : "",
+  );
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/jobs/${job.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          title,
+          company,
+          location,
+          jobType,
+          workMode,
+          experience,
+          salaryMin: salaryMin ? Number(salaryMin) : null,
+          salaryMax: salaryMax ? Number(salaryMax) : null,
+          description,
+          skills: skills
+            .split(",")
+            .map((skill) => skill.trim())
+            .filter(Boolean),
+          applicationDeadline: applicationDeadline || null,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Couldn't save changes. Try again.");
+        return;
+      }
+      onSaved();
+    } catch {
+      setError("Couldn't reach the server. Is the API running?");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="fixed inset-0 bg-black/70"
+      />
+
+      <div className="relative h-[80vh] w-[90vw] overflow-y-auto rounded-2xl border border-white/10 bg-[#1c1c1e] p-6 shadow-2xl sm:h-[70vh] sm:w-[70vw]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <h2 className="pr-8 font-fustat text-2xl font-bold text-white">Edit job</h2>
+        <p className="mt-1 text-sm text-white/50">#{job.job_code}</p>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <InputGroup label="Job title" placeholder="" type="text" value={title} onChange={setTitle} />
+          <InputGroup label="Company" placeholder="" type="text" value={company} onChange={setCompany} />
+
+          <InputGroup
+            label="Location"
+            placeholder=""
+            type="text"
+            value={location}
+            onChange={setLocation}
+          />
+          <SelectGroup
+            label="Job type"
+            placeholder="Select a type"
+            value={jobType}
+            onChange={setJobType}
+            options={JOB_TYPE_OPTIONS}
+          />
+
+          <SelectGroup
+            label="Work mode"
+            placeholder="Select a mode"
+            value={workMode}
+            onChange={setWorkMode}
+            options={WORK_MODE_OPTIONS}
+          />
+          <SelectGroup
+            label="Experience"
+            placeholder="Select a level"
+            value={experience}
+            onChange={setExperience}
+            options={JOB_EXPERIENCE_OPTIONS}
+          />
+
+          <InputGroup
+            label="Salary min"
+            placeholder=""
+            type="number"
+            value={salaryMin}
+            onChange={setSalaryMin}
+          />
+          <InputGroup
+            label="Salary max"
+            placeholder=""
+            type="number"
+            value={salaryMax}
+            onChange={setSalaryMax}
+          />
+
+          <InputGroup
+            label="Skills (comma separated)"
+            placeholder=""
+            type="text"
+            value={skills}
+            onChange={setSkills}
+          />
+          <InputGroup
+            label="Application deadline"
+            placeholder=""
+            type="date"
+            value={applicationDeadline}
+            onChange={setApplicationDeadline}
+          />
+        </div>
+
+        <div className="mt-4">
+          <TextAreaGroup
+            label="Job description"
+            placeholder=""
+            value={description}
+            onChange={setDescription}
+            rows={5}
+          />
+        </div>
+
+        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting}
+          className="mt-6 h-12 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {isSubmitting ? "Saving…" : "Save changes"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -14,10 +14,14 @@ CREATE TABLE IF NOT EXISTS jobs (
   -- random 6-digit reference code, allotted when a recruiter posts a job
   job_code TEXT,
   -- auth_sub of the recruiter who posted it
-  posted_by TEXT
+  posted_by TEXT,
+  -- 'open' or 'closed' — closed jobs drop out of the public listing but stay
+  -- visible (and editable) to the recruiter who posted them
+  status TEXT NOT NULL DEFAULT 'open'
 );
 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS posted_by TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open';
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_code TEXT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS job_type TEXT NOT NULL DEFAULT 'Full-time';
@@ -36,6 +40,11 @@ DO $$ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
+
+-- Added after the fact for databases created with the original 4-value
+-- enum — ADD VALUE can't run inside the same transaction it's later used
+-- in, but this file never uses 'Scheduled' itself, so that's not an issue.
+ALTER TYPE application_status ADD VALUE IF NOT EXISTS 'Scheduled' BEFORE 'Interviewing';
 
 -- One row per candidate application to a specific job — job details and
 -- applicant identity are looked up via job_id/candidate_sub rather than
