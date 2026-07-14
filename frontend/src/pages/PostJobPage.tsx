@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import type { Role } from "./AuroraLayout";
-import { InputGroup, SelectGroup, TextAreaGroup } from "./AuroraLayout";
-import { NavBar } from "./LandingChrome";
-import type { NavUser } from "./LandingChrome";
+import type { Role } from "../components/AuroraLayout";
+import { InputGroup, SelectGroup, TextAreaGroup } from "../components/AuroraLayout";
+import { NavBar } from "../components/LandingChrome";
+import type { NavUser } from "../components/LandingChrome";
 
 const JOB_TYPE_OPTIONS = [
   { value: "Full-time", label: "Full-time" },

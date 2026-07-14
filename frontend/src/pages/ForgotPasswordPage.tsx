@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { MailCheck } from "lucide-react";
-import { AuroraShell, InputGroup } from "./AuroraLayout";
+import { AuroraShell, InputGroup } from "../components/AuroraLayout";
 
 export default function ForgotPasswordPage({
   onNavigateHome,

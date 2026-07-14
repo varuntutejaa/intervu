@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Briefcase, Users, X } from "lucide-react";
-import type { Role } from "./AuroraLayout";
-import { NavBar } from "./LandingChrome";
-import type { NavUser } from "./LandingChrome";
+import type { Role } from "../components/AuroraLayout";
+import { NavBar } from "../components/LandingChrome";
+import type { NavUser } from "../components/LandingChrome";
 
 type Job = {
   id: number;

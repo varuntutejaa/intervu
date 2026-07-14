@@ -9,7 +9,7 @@ import {
   PasswordField,
   SocialButton,
   type Role,
-} from "./AuroraLayout";
+} from "../components/AuroraLayout";
 
 const STRENGTH_LABELS = ["Weak", "Weak", "Fair", "Good", "Strong"];
 const STRENGTH_COLORS = ["bg-red-500", "bg-red-500", "bg-amber-500", "bg-lime-500", "bg-emerald-500"];

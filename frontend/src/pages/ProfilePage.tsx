@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Camera } from "lucide-react";
-import { FileUploadGroup, InputGroup, SelectGroup, TextAreaGroup, type Role } from "./AuroraLayout";
-import { NavBar, type NavUser } from "./LandingChrome";
+import { FileUploadGroup, InputGroup, SelectGroup, TextAreaGroup, type Role } from "../components/AuroraLayout";
+import { NavBar, type NavUser } from "../components/LandingChrome";
 import {
   COMPANY_SIZE_OPTIONS,
   EMPTY_CANDIDATE,
@@ -10,7 +10,7 @@ import {
   EXPERIENCE_OPTIONS,
   type CandidateFields,
   type RecruiterFields,
-} from "./ProfileFields";
+} from "../components/ProfileFields";
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB — stored inline as a data URL, no object storage wired up yet
 

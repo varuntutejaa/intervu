@@ -7,7 +7,7 @@ import {
   PasswordField,
   SocialAuthOptions,
   type Role,
-} from "./AuroraLayout";
+} from "../components/AuroraLayout";
 
 export default function LoginPage({
   onNavigateHome,

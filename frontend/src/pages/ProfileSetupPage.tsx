@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { AuroraRoleQuestion, AuroraShell, type Role } from "./AuroraLayout";
+import { AuroraRoleQuestion, AuroraShell, type Role } from "../components/AuroraLayout";
 import {
   CandidateProfileFields,
   EMPTY_CANDIDATE,
@@ -8,7 +8,7 @@ import {
   RecruiterProfileFields,
   type CandidateFields,
   type RecruiterFields,
-} from "./ProfileFields";
+} from "../components/ProfileFields";
 
 export default function ProfileSetupPage({
   onNavigateHome,

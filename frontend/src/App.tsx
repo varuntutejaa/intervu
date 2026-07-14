@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
-import ApplicationsPage from "./ApplicationsPage";
-import type { NavUser } from "./LandingChrome";
-import type { Role } from "./AuroraLayout";
-import ForgotPasswordPage from "./ForgotPasswordPage";
-import JobsPage from "./JobsPage";
-import LandingPage from "./LandingPage";
-import LoginPage from "./LoginPage";
-import PostJobPage from "./PostJobPage";
-import ProfilePage from "./ProfilePage";
-import ProfileSetupPage from "./ProfileSetupPage";
-import RecruiterDashboardPage from "./RecruiterDashboardPage";
-import SignupPage from "./SignupPage";
-import ViewCandidatesPage from "./ViewCandidatesPage";
-import { useRoute } from "./router";
+import type { NavUser } from "./components/LandingChrome";
+import type { Role } from "./components/AuroraLayout";
+import { useRoute } from "./lib/router";
+import ApplicationsPage from "./pages/ApplicationsPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import JobsPage from "./pages/JobsPage";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import PostJobPage from "./pages/PostJobPage";
+import ProfilePage from "./pages/ProfilePage";
+import ProfileSetupPage from "./pages/ProfileSetupPage";
+import RecruiterDashboardPage from "./pages/RecruiterDashboardPage";
+import SignupPage from "./pages/SignupPage";
+import ViewCandidatesPage from "./pages/ViewCandidatesPage";
 
 export default function App() {
   const { path, navigate } = useRoute();
