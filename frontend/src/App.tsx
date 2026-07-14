@@ -81,6 +81,7 @@ export default function App() {
     onScrollToFeatures: () => navigate("/#features"),
     onOpenAuth: onOpenAuthFresh,
     onOpenProfile: () => navigate("/profile"),
+    onOpenProfileSetup: () => navigate("/profile-setup"),
     onOpenPostJob: () => navigate("/recruiter/post-job"),
     onOpenViewCandidates: () => navigate("/recruiter/candidates"),
     role: accountRole,
@@ -104,9 +105,14 @@ export default function App() {
       />
     );
   }
-  if (path === "/profile-setup" && role) {
+  if (path === "/profile-setup") {
     return (
-      <ProfileSetupPage onNavigateHome={onNavigateHome} onComplete={onNavigateHome} role={role} />
+      <ProfileSetupPage
+        onNavigateHome={onNavigateHome}
+        onComplete={onNavigateHome}
+        role={role}
+        onSelectRole={setRole}
+      />
     );
   }
   if (path === "/forgot-password") {

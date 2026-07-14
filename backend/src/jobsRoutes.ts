@@ -47,7 +47,13 @@ jobsRouter.get(
     const user = await requireRole(req, res, "recruiter");
     if (!user) return;
 
-    const job = await pool.query("SELECT posted_by FROM jobs WHERE id = $1", [req.params.id]);
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      res.status(400).json({ error: "Invalid job id." });
+      return;
+    }
+
+    const job = await pool.query("SELECT posted_by FROM jobs WHERE id = $1", [jobId]);
     if (job.rowCount === 0) {
       res.status(404).json({ error: "Job not found." });
       return;
@@ -65,7 +71,7 @@ jobsRouter.get(
        JOIN profiles p ON p.auth_sub = a.candidate_sub
        WHERE a.job_id = $1
        ORDER BY a.applied_on DESC`,
-      [req.params.id],
+      [jobId],
     );
     res.json(result.rows);
   }),

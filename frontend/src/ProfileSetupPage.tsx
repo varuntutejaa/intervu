@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { AuroraShell, type Role } from "./AuroraLayout";
+import { AuroraRoleQuestion, AuroraShell, type Role } from "./AuroraLayout";
 import {
   CandidateProfileFields,
   EMPTY_CANDIDATE,
@@ -14,10 +14,12 @@ export default function ProfileSetupPage({
   onNavigateHome,
   onComplete,
   role,
+  onSelectRole,
 }: {
   onNavigateHome: () => void;
   onComplete: () => void;
-  role: Role;
+  role: Role | null;
+  onSelectRole: (role: Role) => void;
 }) {
   const [candidate, setCandidate] = useState<CandidateFields>(EMPTY_CANDIDATE);
   const [resume, setResume] = useState<File | null>(null);
@@ -81,52 +83,64 @@ export default function ProfileSetupPage({
       heroTitle="Almost there"
       heroDescription="A complete profile gets you better matches, faster."
     >
-      <div>
-        <h2 className="text-3xl font-medium tracking-tight text-white">Set up your profile</h2>
-        <p className="mt-2 text-sm text-white/40">
-          {role === "candidate"
-            ? "Tell us a bit about your experience so we can find the right roles."
-            : "Tell us a bit about your company so we can find the right candidates."}
-        </p>
-      </div>
+      {role === null ? (
+        <AuroraRoleQuestion
+          title="How will you use Intervu?"
+          description="This just tailors what you see next — you can't get this wrong."
+          onSelect={onSelectRole}
+        />
+      ) : (
+        <>
+          <div>
+            <h2 className="text-3xl font-medium tracking-tight text-white">
+              Set up your profile
+            </h2>
+            <p className="mt-2 text-sm text-white/40">
+              {role === "candidate"
+                ? "Tell us a bit about your experience so we can find the right roles."
+                : "Tell us a bit about your company so we can find the right candidates."}
+            </p>
+          </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {role === "candidate" ? (
-          <CandidateProfileFields
-            values={candidate}
-            onChange={(patch) => setCandidate((prev) => ({ ...prev, ...patch }))}
-            resume={resume}
-            onResumeChange={setResume}
-          />
-        ) : (
-          <RecruiterProfileFields
-            values={recruiter}
-            onChange={(patch) => setRecruiter((prev) => ({ ...prev, ...patch }))}
-            companyLogo={companyLogo}
-            onCompanyLogoChange={setCompanyLogo}
-          />
-        )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {role === "candidate" ? (
+              <CandidateProfileFields
+                values={candidate}
+                onChange={(patch) => setCandidate((prev) => ({ ...prev, ...patch }))}
+                resume={resume}
+                onResumeChange={setResume}
+              />
+            ) : (
+              <RecruiterProfileFields
+                values={recruiter}
+                onChange={(patch) => setRecruiter((prev) => ({ ...prev, ...patch }))}
+                companyLogo={companyLogo}
+                onCompanyLogoChange={setCompanyLogo}
+              />
+            )}
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-red-400">{error}</p>}
 
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-            className="h-14 flex-1 rounded-xl border border-white/10 font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Skip for now
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="h-14 flex-1 rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {isSubmitting ? "Saving…" : "Save & Continue"}
-          </button>
-        </div>
-      </form>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleSkip}
+                disabled={isSubmitting}
+                className="h-14 flex-1 rounded-xl border border-white/10 font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Skip for now
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="h-14 flex-1 rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSubmitting ? "Saving…" : "Save & Continue"}
+              </button>
+            </div>
+          </form>
+        </>
+      )}
     </AuroraShell>
   );
 }

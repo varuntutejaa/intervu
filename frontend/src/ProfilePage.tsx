@@ -56,6 +56,7 @@ export default function ProfilePage({
   onOpenProfile,
   onOpenPostJob,
   onOpenViewCandidates,
+  onOpenProfileSetup,
   role: navRole,
   user,
   onLogout,
@@ -68,6 +69,7 @@ export default function ProfilePage({
   onOpenProfile: () => void;
   onOpenPostJob: () => void;
   onOpenViewCandidates: () => void;
+  onOpenProfileSetup: () => void;
   role: Role | null;
   user: NavUser | null;
   onLogout: () => void;
@@ -205,8 +207,15 @@ export default function ProfilePage({
           <div>
             <h2 className="text-xl font-medium tracking-tight text-white">No profile yet</h2>
             <p className="mt-2 text-sm text-white/40">
-              You haven't set up your profile. Head back to finish signing up to create one.
+              You haven't set up your profile yet.
             </p>
+            <button
+              type="button"
+              onClick={onOpenProfileSetup}
+              className="mt-4 h-11 rounded-xl bg-white px-5 font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+            >
+              Complete your profile
+            </button>
           </div>
         )}
 

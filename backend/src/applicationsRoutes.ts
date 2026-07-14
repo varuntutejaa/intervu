@@ -30,8 +30,8 @@ applicationsRouter.post(
     const user = await requireRole(req, res, "candidate");
     if (!user) return;
 
-    const { jobId } = req.body ?? {};
-    if (!jobId) {
+    const jobId = Number(req.body?.jobId);
+    if (!Number.isInteger(jobId)) {
       res.status(400).json({ error: "jobId is required." });
       return;
     }
@@ -42,19 +42,15 @@ applicationsRouter.post(
       return;
     }
 
-    const existing = await pool.query(
-      "SELECT id FROM applications WHERE job_id = $1 AND candidate_sub = $2",
+    // ON CONFLICT closes the race a separate check-then-insert would leave
+    // open between two near-simultaneous submissions for the same job.
+    const result = await pool.query(
+      `INSERT INTO applications (job_id, candidate_sub)
+       VALUES ($1, $2)
+       ON CONFLICT (job_id, candidate_sub) DO NOTHING
+       RETURNING id`,
       [jobId, user.sub],
     );
-    if (existing.rowCount && existing.rowCount > 0) {
-      res.json({ status: "already_applied" });
-      return;
-    }
-
-    await pool.query("INSERT INTO applications (job_id, candidate_sub) VALUES ($1, $2)", [
-      jobId,
-      user.sub,
-    ]);
-    res.json({ status: "applied" });
+    res.json({ status: result.rowCount ? "applied" : "already_applied" });
   }),
 );

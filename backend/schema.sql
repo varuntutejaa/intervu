@@ -57,6 +57,11 @@ ALTER TABLE applications DROP COLUMN IF EXISTS role;
 ALTER TABLE applications ALTER COLUMN status SET DEFAULT 'Applied';
 ALTER TABLE applications ALTER COLUMN applied_on SET DEFAULT CURRENT_DATE;
 
+-- Enforced in the DB, not just checked in the route, so two near-simultaneous
+-- "Apply" submissions can't race past a check-then-insert into two rows.
+CREATE UNIQUE INDEX IF NOT EXISTS applications_job_candidate_unique
+  ON applications (job_id, candidate_sub);
+
 -- One row per logged-in person, keyed by their auth identity's `sub` — a
 -- Cognito user pool sub, or "firebase:<uid>" for Google/GitHub sign-ins.
 -- Candidate and recruiter fields share one table (nullable columns) since
