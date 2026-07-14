@@ -12,8 +12,18 @@ profileRouter.get(
       return;
     }
 
-    const result = await pool.query("SELECT * FROM profiles WHERE auth_sub = $1", [
+    // One account can hold both a candidate and a recruiter profile — which
+    // one this fetches defaults to whichever is active for this session,
+    // but callers (e.g. viewing the "other" role's data) can ask directly.
+    const role = typeof req.query.role === "string" ? req.query.role : req.session.activeRole;
+    if (role !== "candidate" && role !== "recruiter") {
+      res.json({ profile: null });
+      return;
+    }
+
+    const result = await pool.query("SELECT * FROM profiles WHERE auth_sub = $1 AND role = $2", [
       req.session.user.sub,
+      role,
     ]);
     res.json({ profile: result.rows[0] ?? null });
   }),
@@ -50,9 +60,8 @@ profileRouter.post(
          $18,
          now()
        )
-       ON CONFLICT (auth_sub) DO UPDATE SET
+       ON CONFLICT (auth_sub, role) DO UPDATE SET
          email = EXCLUDED.email,
-         role = EXCLUDED.role,
          desired_role = EXCLUDED.desired_role,
          location = EXCLUDED.location,
          experience = EXCLUDED.experience,
@@ -91,6 +100,8 @@ profileRouter.post(
       ],
     );
 
+    // Saving/updating a profile makes it the one "in view" going forward.
+    req.session.activeRole = role;
     res.json({ status: "saved" });
   }),
 );

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
+import { resolveActiveRole } from "../lib/profiles.js";
 
 export const oauthRouter = Router();
 
@@ -62,11 +63,9 @@ oauthRouter.get(
       const claims = decodeJwtPayload<{ sub: string; email?: string; name?: string }>(
         tokenData.id_token,
       );
-      req.session.user = {
-        sub: `google:${claims.sub}`,
-        email: claims.email ?? "",
-        name: claims.name,
-      };
+      const sub = `google:${claims.sub}`;
+      req.session.user = { sub, email: claims.email ?? "", name: claims.name };
+      req.session.activeRole = (await resolveActiveRole(sub)) ?? undefined;
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);
@@ -143,11 +142,13 @@ oauthRouter.get(
         }
       }
 
+      const sub = `github:${user.id}`;
       req.session.user = {
-        sub: `github:${user.id}`,
+        sub,
         email,
         name: typeof user.name === "string" ? user.name : user.login,
       };
+      req.session.activeRole = (await resolveActiveRole(sub)) ?? undefined;
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);

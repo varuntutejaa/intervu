@@ -45,6 +45,7 @@ export default function JobsPage({
   onOpenProfile,
   onOpenPostJob,
   onOpenViewCandidates,
+  onSwitchRole,
   role,
   user,
   onLogout,
@@ -57,6 +58,7 @@ export default function JobsPage({
   onOpenProfile: () => void;
   onOpenPostJob: () => void;
   onOpenViewCandidates: () => void;
+  onSwitchRole: (role: Role) => void;
   role: Role | null;
   user: NavUser | null;
   onLogout: () => void;
@@ -126,6 +128,7 @@ export default function JobsPage({
           onOpenProfile={onOpenProfile}
           onOpenPostJob={onOpenPostJob}
           onOpenViewCandidates={onOpenViewCandidates}
+          onSwitchRole={onSwitchRole}
           role={role}
           user={user}
           onLogout={onLogout}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, LogOut, Search, User } from "lucide-react";
+import { ArrowLeftRight, Bell, LogOut, Search, User } from "lucide-react";
 import type { Role } from "./AuroraLayout";
 
 const NAV_LINK_CLASS =
@@ -16,6 +16,7 @@ export function NavBar({
   onOpenProfile,
   onOpenPostJob,
   onOpenViewCandidates,
+  onSwitchRole,
   role,
   user,
   onLogout,
@@ -28,6 +29,7 @@ export function NavBar({
   onOpenProfile: () => void;
   onOpenPostJob: () => void;
   onOpenViewCandidates: () => void;
+  onSwitchRole: (role: Role) => void;
   role: Role | null;
   user: NavUser | null;
   onLogout: () => void;
@@ -88,7 +90,13 @@ export function NavBar({
       </div>
 
       {user ? (
-        <ProfileMenu user={user} onOpenProfile={onOpenProfile} onLogout={onLogout} />
+        <ProfileMenu
+          user={user}
+          onOpenProfile={onOpenProfile}
+          onSwitchRole={onSwitchRole}
+          role={role}
+          onLogout={onLogout}
+        />
       ) : (
         <button
           type="button"
@@ -113,13 +121,18 @@ function initials(user: NavUser) {
 function ProfileMenu({
   user,
   onOpenProfile,
+  onSwitchRole,
+  role,
   onLogout,
 }: {
   user: NavUser;
   onOpenProfile: () => void;
+  onSwitchRole: (role: Role) => void;
+  role: Role | null;
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const otherRole: Role = role === "recruiter" ? "candidate" : "recruiter";
 
   return (
     <div className="relative shrink-0 justify-self-end">
@@ -157,6 +170,19 @@ function ProfileMenu({
               <User className="h-4 w-4" />
               Profile
             </button>
+            {role && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onSwitchRole(otherRole);
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-colors hover:bg-white/10"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Switch to {otherRole === "recruiter" ? "Recruiter" : "Candidate"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

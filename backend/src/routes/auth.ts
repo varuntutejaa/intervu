@@ -7,14 +7,19 @@ import {
 } from "@aws-sdk/client-cognito-identity-provider";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { COGNITO_CLIENT_ID, cognitoClient, secretHash, usernameFromEmail } from "../lib/cognito.js";
-import { pool } from "../lib/db.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
+import { getRolesForSub, resolveActiveRole } from "../lib/profiles.js";
 
 declare module "express-session" {
   interface SessionData {
     user?: { sub: string; email: string; name?: string };
     accessToken?: string;
     refreshToken?: string;
+    // Which of the account's profiles (candidate and/or recruiter) is
+    // currently "in view" — a display preference, not itself an
+    // authorization check (see requireRole, which checks the profiles
+    // table directly).
+    activeRole?: "candidate" | "recruiter";
   }
 }
 
@@ -141,6 +146,7 @@ authRouter.post(
       req.session.user = { sub: claims.sub, email: claims.email, name: claims.name };
       req.session.accessToken = result.AuthenticationResult?.AccessToken;
       req.session.refreshToken = result.AuthenticationResult?.RefreshToken;
+      req.session.activeRole = (await resolveActiveRole(claims.sub)) ?? undefined;
 
       res.json({ user: req.session.user });
     } catch (err) {
@@ -163,10 +169,32 @@ authRouter.get(
       return;
     }
 
-    const result = await pool.query("SELECT role FROM profiles WHERE auth_sub = $1", [
-      req.session.user.sub,
-    ]);
-    res.json({ user: req.session.user, role: result.rows[0]?.role ?? null });
+    const roles = await getRolesForSub(req.session.user.sub);
+    res.json({ user: req.session.user, role: req.session.activeRole ?? null, roles });
+  }),
+);
+
+// Flips which profile (candidate or recruiter) is "in view" for this
+// session — doesn't require the target role to already have a saved
+// profile, since switching to a role you haven't set up yet is exactly how
+// an existing account adds the other one (the frontend sends them to
+// profile setup when `roles` doesn't include the target).
+authRouter.post(
+  "/switch-role",
+  asyncHandler(async (req, res) => {
+    if (!req.session.user) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const { role } = req.body ?? {};
+    if (role !== "candidate" && role !== "recruiter") {
+      res.status(400).json({ error: "Role must be 'candidate' or 'recruiter'." });
+      return;
+    }
+
+    req.session.activeRole = role;
+    res.json({ role });
   }),
 );
 

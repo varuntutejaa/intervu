@@ -62,10 +62,12 @@ ALTER TABLE applications ALTER COLUMN applied_on SET DEFAULT CURRENT_DATE;
 CREATE UNIQUE INDEX IF NOT EXISTS applications_job_candidate_unique
   ON applications (job_id, candidate_sub);
 
--- One row per logged-in person, keyed by their auth identity's `sub` — a
--- Cognito user pool sub, or "firebase:<uid>" for Google/GitHub sign-ins.
--- Candidate and recruiter fields share one table (nullable columns) since
--- a person is only ever one role and the two field sets never overlap.
+-- One row per (person, role) — a single login can hold both a candidate and
+-- a recruiter profile at once and switch between them (see activeRole in
+-- the session), keyed by their auth identity's `sub` — a Cognito user pool
+-- sub, or "google:<id>"/"github:<id>" for social sign-ins. Candidate and
+-- recruiter fields share one table (nullable columns) since the two field
+-- sets never overlap within a single row.
 DO $$ BEGIN
   CREATE TYPE profile_role AS ENUM ('candidate', 'recruiter');
 EXCEPTION
@@ -73,7 +75,7 @@ EXCEPTION
 END $$;
 
 CREATE TABLE IF NOT EXISTS profiles (
-  auth_sub TEXT PRIMARY KEY,
+  auth_sub TEXT NOT NULL,
   email TEXT NOT NULL,
   role profile_role NOT NULL,
 
@@ -100,10 +102,18 @@ CREATE TABLE IF NOT EXISTS profiles (
   avatar_url TEXT,
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  PRIMARY KEY (auth_sub, role)
 );
 
 -- Re-running this file against a database created before avatar_url existed
 -- (CREATE TABLE IF NOT EXISTS won't retroactively add columns) should still
 -- pick it up.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- Databases created before dual-role support had auth_sub alone as the
+-- primary key — widen it so the same login can hold one row per role.
+-- Safe to re-run: dropping+re-adding an already-composite key is a no-op.
+ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_pkey;
+ALTER TABLE profiles ADD PRIMARY KEY (auth_sub, role);
