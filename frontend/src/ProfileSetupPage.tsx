@@ -26,6 +26,19 @@ export default function ProfileSetupPage({
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const saveProfile = async (fields: Record<string, unknown>) => {
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ role, fields }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "Couldn't save your profile. Try again.");
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -35,21 +48,27 @@ export default function ProfileSetupPage({
         role === "candidate"
           ? { ...candidate, resumeFilename: resume?.name }
           : { ...recruiter, companyLogoFilename: companyLogo?.name };
-
-      const res = await fetch("/api/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ role, fields }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Couldn't save your profile. Try again.");
-        return;
-      }
+      await saveProfile(fields);
       onComplete();
-    } catch {
-      setError("Couldn't reach the server. Is the API running?");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't reach the server. Is the API running?");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // The backend only learns a user's role from this saved profile row — so
+  // skipping still has to record at least the role, or every role-gated
+  // action (applying, posting a job, ...) rejects them afterwards with no
+  // way to tell they're actually a candidate/recruiter.
+  const handleSkip = async () => {
+    setError("");
+    setIsSubmitting(true);
+    try {
+      await saveProfile({});
+      onComplete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't reach the server. Is the API running?");
     } finally {
       setIsSubmitting(false);
     }
@@ -93,8 +112,9 @@ export default function ProfileSetupPage({
         <div className="flex items-center gap-3 pt-2">
           <button
             type="button"
-            onClick={onComplete}
-            className="h-14 flex-1 rounded-xl border border-white/10 font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+            onClick={handleSkip}
+            disabled={isSubmitting}
+            className="h-14 flex-1 rounded-xl border border-white/10 font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Skip for now
           </button>
