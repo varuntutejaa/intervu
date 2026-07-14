@@ -3,11 +3,9 @@ import type { FormEvent } from "react";
 import {
   AuroraRoleQuestion,
   AuroraShell,
-  GithubLogo,
-  GoogleLogo,
   InputGroup,
   PasswordField,
-  SocialButton,
+  SocialAuthOptions,
   type Role,
 } from "../components/AuroraLayout";
 
@@ -208,18 +206,7 @@ export default function SignupPage({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <SocialButton icon={GoogleLogo} label="Google" />
-            <SocialButton icon={GithubLogo} label="Github" />
-          </div>
-
-          <div className="flex items-center">
-            <div className="h-px flex-1 bg-white/10" />
-            <span className="bg-black px-4 text-xs font-medium tracking-widest text-white/40 uppercase">
-              Or
-            </span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
+          <SocialAuthOptions />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <InputGroup
