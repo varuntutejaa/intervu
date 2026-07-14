@@ -47,8 +47,16 @@ export default function App() {
   };
 
   // Pick up an existing session on first load (e.g. the tab was reopened).
+  // Also covers landing back from an OAuth redirect: if the role picked at
+  // login has no saved profile yet, send them to set one up instead of
+  // showing the wrong dashboard (or LandingPage) for an incomplete account.
   useEffect(() => {
-    refreshUser();
+    refreshUser().then((data) => {
+      if (data?.role && !data.roles?.includes(data.role)) {
+        setRole(data.role);
+        navigate("/profile-setup");
+      }
+    });
   }, []);
 
   const onNavigateHome = () => navigate("/");
@@ -62,8 +70,15 @@ export default function App() {
   };
 
   const onLoginSuccess = async () => {
-    await refreshUser();
-    onNavigateHome();
+    // `role` (picked on the login screen) is already set in state here —
+    // if this account has no profile for it yet, authentication still
+    // succeeded, so send them to set it up instead of refusing to log in.
+    const data = await refreshUser();
+    if (data?.role && !data.roles?.includes(data.role)) {
+      navigate("/profile-setup");
+    } else {
+      onNavigateHome();
+    }
   };
 
   const onLogout = async () => {

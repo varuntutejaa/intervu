@@ -143,22 +143,20 @@ authRouter.post(
       }
 
       const claims = decodeJwtPayload<{ sub: string; email: string; name?: string }>(idToken);
-      const roles = await getRolesForSub(claims.sub);
-
-      // The role picked on the login screen isn't just display copy — if
-      // this account doesn't actually have that profile, reject the login
-      // instead of silently signing them into whichever role it does have.
-      if ((role === "candidate" || role === "recruiter") && roles.length > 0 && !roles.includes(role)) {
-        res.status(403).json({
-          error: `This account isn't set up as a ${role}. It's registered as a ${roles.join(" and ")}.`,
-        });
-        return;
-      }
 
       req.session.user = { sub: claims.sub, email: claims.email, name: claims.name };
       req.session.accessToken = result.AuthenticationResult?.AccessToken;
       req.session.refreshToken = result.AuthenticationResult?.RefreshToken;
-      req.session.activeRole = roles.includes(role) ? role : ((await resolveActiveRole(claims.sub)) ?? undefined);
+      // The role picked on the login screen isn't just display copy — trust
+      // it as the active role even if this account has no profile for it
+      // yet (authentication already proved who they are); the frontend
+      // sends them to profile setup instead of home in that case, same as
+      // switch-role does. Falls back to whichever profile exists if no
+      // role was picked at all.
+      req.session.activeRole =
+        role === "candidate" || role === "recruiter"
+          ? role
+          : ((await resolveActiveRole(claims.sub)) ?? undefined);
 
       res.json({ user: req.session.user });
     } catch (err) {

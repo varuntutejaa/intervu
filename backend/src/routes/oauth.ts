@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
-import { getRolesForSub, resolveActiveRole } from "../lib/profiles.js";
+import { resolveActiveRole } from "../lib/profiles.js";
 
 export const oauthRouter = Router();
 
@@ -74,17 +74,12 @@ oauthRouter.get(
       );
       const sub = `google:${claims.sub}`;
       const role = roleFromState(req.query.state);
-      const roles = await getRolesForSub(sub);
-      if (role && roles.length > 0 && !roles.includes(role)) {
-        loginErrorRedirect(
-          res,
-          `This account isn't set up as a ${role}. It's registered as a ${roles.join(" and ")}.`,
-        );
-        return;
-      }
 
       req.session.user = { sub, email: claims.email ?? "", name: claims.name };
-      req.session.activeRole = role && roles.includes(role) ? role : ((await resolveActiveRole(sub)) ?? undefined);
+      // Trust the role picked on the login screen even if this account has
+      // no profile for it yet — the frontend sends them to profile setup
+      // instead of home in that case, same as switch-role does.
+      req.session.activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);
@@ -165,21 +160,13 @@ oauthRouter.get(
 
       const sub = `github:${user.id}`;
       const role = roleFromState(req.query.state);
-      const roles = await getRolesForSub(sub);
-      if (role && roles.length > 0 && !roles.includes(role)) {
-        loginErrorRedirect(
-          res,
-          `This account isn't set up as a ${role}. It's registered as a ${roles.join(" and ")}.`,
-        );
-        return;
-      }
 
       req.session.user = {
         sub,
         email,
         name: typeof user.name === "string" ? user.name : user.login,
       };
-      req.session.activeRole = role && roles.includes(role) ? role : ((await resolveActiveRole(sub)) ?? undefined);
+      req.session.activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);
