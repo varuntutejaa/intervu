@@ -13,6 +13,7 @@ type Candidate = {
   skills: string | null;
   bio: string | null;
   resume_filename: string | null;
+  resume_data: string | null;
   avatar_url: string | null;
 };
 
@@ -146,8 +147,18 @@ export default function ViewCandidatesPage({
                           Portfolio
                         </a>
                       )}
-                      {candidate.resume_filename && (
-                        <span className="text-white/40">Resume: {candidate.resume_filename}</span>
+                      {candidate.resume_data ? (
+                        <a
+                          href={candidate.resume_data}
+                          download={candidate.resume_filename ?? "resume"}
+                          className="font-medium text-white underline underline-offset-2"
+                        >
+                          Resume: {candidate.resume_filename ?? "download"}
+                        </a>
+                      ) : (
+                        candidate.resume_filename && (
+                          <span className="text-white/40">Resume: {candidate.resume_filename}</span>
+                        )
                       )}
                     </div>
                   </div>

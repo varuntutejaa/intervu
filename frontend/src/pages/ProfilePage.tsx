@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Camera } from "lucide-react";
+import { Camera, FileText } from "lucide-react";
 import { FileUploadGroup, InputGroup, SelectGroup, TextAreaGroup, type Role } from "../components/AuroraLayout";
 import { NavBar, type NavUser } from "../components/LandingChrome";
 import {
@@ -11,8 +11,7 @@ import {
   type CandidateFields,
   type RecruiterFields,
 } from "../components/ProfileFields";
-
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024; // 2MB — stored inline as a data URL, no object storage wired up yet
+import { MAX_AVATAR_BYTES, MAX_RESUME_BYTES, readFileAsDataUrl } from "../lib/files";
 
 type ProfileRow = {
   email: string;
@@ -24,6 +23,7 @@ type ProfileRow = {
   skills: string | null;
   bio: string | null;
   resume_filename: string | null;
+  resume_data: string | null;
   company_name: string | null;
   job_title: string | null;
   company_website: string | null;
@@ -33,15 +33,6 @@ type ProfileRow = {
   company_logo_filename: string | null;
   avatar_url: string | null;
 };
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function initials(email: string) {
   return email.slice(0, 2).toUpperCase();
@@ -81,7 +72,9 @@ export default function ProfilePage({
   const [role, setRole] = useState<Role>("candidate");
   const [candidate, setCandidate] = useState<CandidateFields>(EMPTY_CANDIDATE);
   const [resume, setResume] = useState<File | null>(null);
+  const [resumeError, setResumeError] = useState("");
   const [existingResumeFilename, setExistingResumeFilename] = useState<string | undefined>();
+  const [existingResumeData, setExistingResumeData] = useState<string | undefined>();
   const [recruiter, setRecruiter] = useState<RecruiterFields>(EMPTY_RECRUITER);
   const [companyLogo, setCompanyLogo] = useState<File | null>(null);
   const [existingCompanyLogoFilename, setExistingCompanyLogoFilename] = useState<
@@ -114,6 +107,7 @@ export default function ProfilePage({
           bio: p.bio ?? "",
         });
         setExistingResumeFilename(p.resume_filename ?? undefined);
+        setExistingResumeData(p.resume_data ?? undefined);
         setRecruiter({
           companyName: p.company_name ?? "",
           jobTitle: p.job_title ?? "",
@@ -142,7 +136,14 @@ export default function ProfilePage({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setResumeError("");
     setSaved(false);
+
+    if (resume && resume.size > MAX_RESUME_BYTES) {
+      setResumeError("Please choose a resume under 4MB.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const fields =
@@ -150,6 +151,7 @@ export default function ProfilePage({
           ? {
               ...candidate,
               resumeFilename: resume?.name ?? existingResumeFilename,
+              resumeData: resume ? await readFileAsDataUrl(resume) : existingResumeData,
               avatarUrl,
             }
           : {
@@ -302,13 +304,26 @@ export default function ProfilePage({
                     value={candidate.skills}
                     onChange={(skills) => setCandidate((prev) => ({ ...prev, skills }))}
                   />
-                  <FileUploadGroup
-                    label="Resume"
-                    file={resume}
-                    onChange={setResume}
-                    accept=".pdf,.doc,.docx"
-                    existingLabel={existingResumeFilename}
-                  />
+                  <div>
+                    <FileUploadGroup
+                      label="Resume"
+                      file={resume}
+                      onChange={setResume}
+                      accept=".pdf,.doc,.docx"
+                      existingLabel={existingResumeFilename}
+                    />
+                    {existingResumeData && !resume && (
+                      <a
+                        href={existingResumeData}
+                        download={existingResumeFilename ?? "resume"}
+                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white"
+                      >
+                        <FileText className="h-3 w-3" />
+                        View current resume
+                      </a>
+                    )}
+                    {resumeError && <p className="mt-1.5 text-xs text-red-400">{resumeError}</p>}
+                  </div>
 
                   <div className="sm:col-span-2">
                     <TextAreaGroup

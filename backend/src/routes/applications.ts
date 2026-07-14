@@ -12,7 +12,7 @@ applicationsRouter.get(
     if (!user) return;
 
     const result = await pool.query(
-      `SELECT a.id, a.status, a.applied_on,
+      `SELECT a.id, a.status, a.applied_on, a.feedback,
               j.id AS job_id, j.title, j.company, j.location
        FROM applications a
        JOIN jobs j ON j.id = a.job_id

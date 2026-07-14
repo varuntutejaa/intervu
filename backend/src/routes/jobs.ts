@@ -21,8 +21,42 @@ async function generateJobCode(): Promise<string> {
 
 jobsRouter.get(
   "/",
-  asyncHandler(async (_req, res) => {
-    const result = await pool.query(`SELECT ${JOB_FIELDS} FROM jobs ORDER BY id`);
+  asyncHandler(async (req, res) => {
+    // Search + filters all happen server-side rather than over an
+    // already-fetched list, so this stays correct as the number of postings
+    // grows instead of only ever searching whatever page happened to load.
+    const { q, jobType, workMode, experience, location } = req.query;
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (typeof q === "string" && q.trim()) {
+      params.push(`%${q.trim()}%`);
+      conditions.push(
+        `(title ILIKE $${params.length} OR company ILIKE $${params.length} OR EXISTS (SELECT 1 FROM unnest(skills) s WHERE s ILIKE $${params.length}))`,
+      );
+    }
+    if (typeof jobType === "string" && jobType) {
+      params.push(jobType);
+      conditions.push(`job_type = $${params.length}`);
+    }
+    if (typeof workMode === "string" && workMode) {
+      params.push(workMode);
+      conditions.push(`work_mode = $${params.length}`);
+    }
+    if (typeof experience === "string" && experience) {
+      params.push(experience);
+      conditions.push(`experience = $${params.length}`);
+    }
+    if (typeof location === "string" && location.trim()) {
+      params.push(`%${location.trim()}%`);
+      conditions.push(`location ILIKE $${params.length}`);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = await pool.query(
+      `SELECT ${JOB_FIELDS} FROM jobs ${where} ORDER BY id DESC`,
+      params,
+    );
     res.json(result.rows);
   }),
 );
@@ -64,9 +98,9 @@ jobsRouter.get(
     }
 
     const result = await pool.query(
-      `SELECT a.id AS application_id, a.status, a.applied_on,
+      `SELECT a.id AS application_id, a.status, a.applied_on, a.feedback,
               p.auth_sub, p.email, p.desired_role, p.location, p.experience,
-              p.portfolio_url, p.skills, p.bio, p.resume_filename, p.avatar_url
+              p.portfolio_url, p.skills, p.bio, p.resume_filename, p.resume_data, p.avatar_url
        FROM applications a
        JOIN profiles p ON p.auth_sub = a.candidate_sub
        WHERE a.job_id = $1
@@ -74,6 +108,57 @@ jobsRouter.get(
       [jobId],
     );
     res.json(result.rows);
+  }),
+);
+
+const APPLICATION_STATUSES = ["Applied", "Interviewing", "Offer", "Rejected"];
+
+// Lets a recruiter set status and leave feedback (e.g. post-interview
+// notes) on an application to one of their own jobs — scoped to jobId so
+// the ownership check above is reused, rather than trusting applicationId
+// alone.
+jobsRouter.patch(
+  "/:id/applicants/:applicationId",
+  asyncHandler(async (req, res) => {
+    const user = await requireRole(req, res, "recruiter");
+    if (!user) return;
+
+    const jobId = Number(req.params.id);
+    const applicationId = Number(req.params.applicationId);
+    if (!Number.isInteger(jobId) || !Number.isInteger(applicationId)) {
+      res.status(400).json({ error: "Invalid id." });
+      return;
+    }
+
+    const job = await pool.query("SELECT posted_by FROM jobs WHERE id = $1", [jobId]);
+    if (job.rowCount === 0) {
+      res.status(404).json({ error: "Job not found." });
+      return;
+    }
+    if (job.rows[0].posted_by !== user.sub) {
+      res.status(403).json({ error: "You didn't post this job." });
+      return;
+    }
+
+    const { status, feedback } = req.body ?? {};
+    if (status !== undefined && !APPLICATION_STATUSES.includes(status)) {
+      res.status(400).json({ error: "Invalid status." });
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE applications
+       SET status = COALESCE($1, status), feedback = COALESCE($2, feedback)
+       WHERE id = $3 AND job_id = $4
+       RETURNING id, status, feedback`,
+      [status ?? null, feedback ?? null, applicationId, jobId],
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "Application not found for this job." });
+      return;
+    }
+
+    res.json(result.rows[0]);
   }),
 );
 

@@ -21,9 +21,9 @@ app.use(
     credentials: true,
   }),
 );
-// Default 100kb is too small for a base64-encoded profile picture (up to
-// 2MB raw, ~2.7MB encoded) sent as part of the profile JSON payload.
-app.use(express.json({ limit: "5mb" }));
+// Default 100kb is too small for a base64-encoded avatar (up to 2MB raw)
+// and resume (up to 4MB raw) sent together as part of the profile payload.
+app.use(express.json({ limit: "10mb" }));
 app.use(
   session({
     secret: process.env.SESSION_SECRET ?? "dev-only-secret-change-me",

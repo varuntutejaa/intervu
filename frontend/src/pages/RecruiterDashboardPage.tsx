@@ -24,6 +24,7 @@ type Applicant = {
   application_id: number;
   status: string;
   applied_on: string;
+  feedback: string | null;
   auth_sub: string;
   email: string;
   desired_role: string | null;
@@ -33,8 +34,11 @@ type Applicant = {
   skills: string | null;
   bio: string | null;
   resume_filename: string | null;
+  resume_data: string | null;
   avatar_url: string | null;
 };
+
+const APPLICATION_STATUSES = ["Applied", "Interviewing", "Offer", "Rejected"];
 
 function formatSalary(min: number | null, max: number | null) {
   if (!min && !max) return null;
@@ -278,76 +282,162 @@ function ApplicantsModal({ job, onClose }: { job: Job; onClose: () => void }) {
           {status === "ready" && applicants.length > 0 && (
             <div className="space-y-4">
               {applicants.map((applicant) => (
-                <div
-                  key={applicant.application_id}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-5"
-                >
-                  <div className="flex items-start gap-4">
-                    {applicant.avatar_url ? (
-                      <img
-                        src={applicant.avatar_url}
-                        alt=""
-                        className="h-12 w-12 shrink-0 rounded-full border border-white/10 object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-brand-gray font-grotesk text-sm font-semibold text-white">
-                        {initials(applicant.email)}
-                      </div>
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <p className="font-fustat text-lg font-semibold text-white">
-                          {applicant.desired_role || "Candidate"}
-                        </p>
-                        <p className="text-xs text-white/40">{applicant.email}</p>
-                      </div>
-                      <p className="text-sm text-white/40">
-                        {[
-                          applicant.location,
-                          applicant.experience && `${applicant.experience} experience`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-
-                      {applicant.bio && (
-                        <p className="mt-2 text-sm text-white/70">{applicant.bio}</p>
-                      )}
-                      {applicant.skills && (
-                        <p className="mt-2 text-xs text-white/40">Skills: {applicant.skills}</p>
-                      )}
-
-                      <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                        {applicant.portfolio_url && (
-                          <a
-                            href={applicant.portfolio_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-medium text-white underline underline-offset-2"
-                          >
-                            Portfolio
-                          </a>
-                        )}
-                        {applicant.resume_filename && (
-                          <span className="text-white/40">
-                            Resume: {applicant.resume_filename}
-                          </span>
-                        )}
-                        <span className="text-white/30">
-                          Applied{" "}
-                          {new Date(applicant.applied_on).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ApplicantCard key={applicant.application_id} jobId={job.id} applicant={applicant} />
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applicant }) {
+  const [applicantStatus, setApplicantStatus] = useState(applicant.status);
+  const [feedback, setFeedback] = useState(applicant.feedback ?? "");
+  // What's actually saved server-side, tracked separately from props so a
+  // successful save doesn't require mutating the applicant object passed
+  // down from the parent's fetched list.
+  const [savedStatus, setSavedStatus] = useState(applicant.status);
+  const [savedFeedback, setSavedFeedback] = useState(applicant.feedback ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const dirty = applicantStatus !== savedStatus || feedback !== savedFeedback;
+
+  const handleSave = async () => {
+    setError("");
+    setSaved(false);
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/applicants/${applicant.application_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: applicantStatus, feedback }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Couldn't save. Try again.");
+        return;
+      }
+      setSavedStatus(applicantStatus);
+      setSavedFeedback(feedback);
+      setSaved(true);
+    } catch {
+      setError("Couldn't reach the server. Is the API running?");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-start gap-4">
+        {applicant.avatar_url ? (
+          <img
+            src={applicant.avatar_url}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-full border border-white/10 object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-brand-gray font-grotesk text-sm font-semibold text-white">
+            {initials(applicant.email)}
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <p className="font-fustat text-lg font-semibold text-white">
+              {applicant.desired_role || "Candidate"}
+            </p>
+            <p className="text-xs text-white/40">{applicant.email}</p>
+          </div>
+          <p className="text-sm text-white/40">
+            {[applicant.location, applicant.experience && `${applicant.experience} experience`]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+
+          {applicant.bio && <p className="mt-2 text-sm text-white/70">{applicant.bio}</p>}
+          {applicant.skills && (
+            <p className="mt-2 text-xs text-white/40">Skills: {applicant.skills}</p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-3 text-xs">
+            {applicant.portfolio_url && (
+              <a
+                href={applicant.portfolio_url}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-white underline underline-offset-2"
+              >
+                Portfolio
+              </a>
+            )}
+            {applicant.resume_data ? (
+              <a
+                href={applicant.resume_data}
+                download={applicant.resume_filename ?? "resume"}
+                className="font-medium text-white underline underline-offset-2"
+              >
+                Resume: {applicant.resume_filename ?? "download"}
+              </a>
+            ) : (
+              applicant.resume_filename && (
+                <span className="text-white/40">Resume: {applicant.resume_filename}</span>
+              )
+            )}
+            <span className="text-white/30">
+              Applied{" "}
+              {new Date(applicant.applied_on).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-xs font-medium text-white/50">Status</label>
+              <select
+                value={applicantStatus}
+                onChange={(e) => setApplicantStatus(e.target.value)}
+                className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+              >
+                {APPLICATION_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <label className="mt-3 block text-xs font-medium text-white/50">
+              Feedback for the candidate
+            </label>
+            <textarea
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="e.g. notes from the interview, next steps..."
+              rows={2}
+              className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+            />
+
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!dirty || isSaving}
+                className="h-8 rounded-lg bg-white px-3 text-xs font-semibold text-black transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSaving ? "Saving…" : "Save"}
+              </button>
+              {saved && !dirty && <span className="text-xs text-emerald-400">Saved.</span>}
+              {error && <span className="text-xs text-red-400">{error}</span>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

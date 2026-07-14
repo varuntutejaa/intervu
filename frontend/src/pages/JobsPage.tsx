@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import type { Role } from "../components/AuroraLayout";
 import { NavBar } from "../components/LandingChrome";
 import type { NavUser } from "../components/LandingChrome";
+
+const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"];
+const WORK_MODE_OPTIONS = ["Onsite", "Remote", "Hybrid"];
+const EXPERIENCE_OPTIONS = ["Fresher", "1-3 Years", "3-5 Years", "5-10 Years"];
+const FILTER_SELECT_CLASS =
+  "h-10 rounded-xl border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20";
 
 type Job = {
   id: number;
@@ -70,8 +76,29 @@ export default function JobsPage({
   const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
   const [applyError, setApplyError] = useState("");
 
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [workMode, setWorkMode] = useState("");
+  const [experience, setExperience] = useState("");
+
+  // Debounce the search box so every keystroke doesn't fire a request —
+  // the dropdown filters apply immediately since those only change on
+  // deliberate selection.
   useEffect(() => {
-    fetch("/api/jobs")
+    const id = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setStatus("loading");
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (jobType) params.set("jobType", jobType);
+    if (workMode) params.set("workMode", workMode);
+    if (experience) params.set("experience", experience);
+
+    fetch(`/api/jobs?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         return res.json();
@@ -81,7 +108,7 @@ export default function JobsPage({
         setStatus("ready");
       })
       .catch(() => setStatus("error"));
-  }, []);
+  }, [search, jobType, workMode, experience]);
 
   useEffect(() => {
     if (role !== "candidate") return;
@@ -138,9 +165,64 @@ export default function JobsPage({
       <div className="mx-auto max-w-5xl px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
         <h1 className="font-fustat text-3xl font-bold text-white">Jobs for you</h1>
 
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-xl border-none bg-brand-gray px-3 text-white/60">
+            <Search className="h-4 w-4 shrink-0" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search by title, company, or skill..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
+            />
+          </div>
+
+          <select
+            value={jobType}
+            onChange={(e) => setJobType(e.target.value)}
+            className={FILTER_SELECT_CLASS}
+          >
+            <option value="">All job types</option>
+            {JOB_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={workMode}
+            onChange={(e) => setWorkMode(e.target.value)}
+            className={FILTER_SELECT_CLASS}
+          >
+            <option value="">All work modes</option>
+            {WORK_MODE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={experience}
+            onChange={(e) => setExperience(e.target.value)}
+            className={FILTER_SELECT_CLASS}
+          >
+            <option value="">All experience levels</option>
+            {EXPERIENCE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {status === "loading" && <p className="mt-6 text-sm text-white/50">Loading jobs…</p>}
         {status === "error" && (
           <p className="mt-6 text-sm text-red-400">Couldn't load jobs. Is the API running?</p>
+        )}
+        {status === "ready" && jobs.length === 0 && (
+          <p className="mt-6 text-sm text-white/40">No jobs match your search/filters.</p>
         )}
 
         <div className="mt-6 space-y-3">

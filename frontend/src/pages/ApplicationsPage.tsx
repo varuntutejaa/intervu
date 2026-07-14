@@ -13,6 +13,7 @@ type Application = {
   location: string;
   status: ApplicationStatus;
   applied_on: string;
+  feedback: string | null;
 };
 
 function formatAppliedOn(date: string) {
@@ -107,19 +108,27 @@ export default function ApplicationsPage({
           {applications.map((app) => (
             <div
               key={app.id}
-              className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="rounded-2xl border border-white/10 bg-white/5 p-4"
             >
-              <div>
-                <p className="font-grotesk text-sm font-semibold text-white">{app.title}</p>
-                <p className="mt-1 text-xs text-white/50">
-                  {app.company} · {app.location} · {formatAppliedOn(app.applied_on)}
-                </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-grotesk text-sm font-semibold text-white">{app.title}</p>
+                  <p className="mt-1 text-xs text-white/50">
+                    {app.company} · {app.location} · {formatAppliedOn(app.applied_on)}
+                  </p>
+                </div>
+                <span
+                  className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[app.status]}`}
+                >
+                  {app.status}
+                </span>
               </div>
-              <span
-                className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[app.status]}`}
-              >
-                {app.status}
-              </span>
+              {app.feedback && (
+                <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="text-xs font-medium text-white/40">Recruiter feedback</p>
+                  <p className="mt-1 text-sm text-white/70">{app.feedback}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>

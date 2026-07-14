@@ -49,15 +49,15 @@ profileRouter.post(
     await pool.query(
       `INSERT INTO profiles (
          auth_sub, email, role,
-         desired_role, location, experience, portfolio_url, skills, bio, resume_filename,
+         desired_role, location, experience, portfolio_url, skills, bio, resume_filename, resume_data,
          company_name, job_title, company_website, company_size, industry, company_bio, company_logo_filename,
          avatar_url,
          updated_at
        ) VALUES (
          $1, $2, $3,
-         $4, $5, $6, $7, $8, $9, $10,
-         $11, $12, $13, $14, $15, $16, $17,
-         $18,
+         $4, $5, $6, $7, $8, $9, $10, $11,
+         $12, $13, $14, $15, $16, $17, $18,
+         $19,
          now()
        )
        ON CONFLICT (auth_sub, role) DO UPDATE SET
@@ -69,6 +69,7 @@ profileRouter.post(
          skills = EXCLUDED.skills,
          bio = EXCLUDED.bio,
          resume_filename = EXCLUDED.resume_filename,
+         resume_data = EXCLUDED.resume_data,
          company_name = EXCLUDED.company_name,
          job_title = EXCLUDED.job_title,
          company_website = EXCLUDED.company_website,
@@ -89,6 +90,7 @@ profileRouter.post(
         f.skills ?? null,
         f.bio ?? null,
         f.resumeFilename ?? null,
+        f.resumeData ?? null,
         f.companyName ?? null,
         f.jobTitle ?? null,
         f.companyWebsite ?? null,

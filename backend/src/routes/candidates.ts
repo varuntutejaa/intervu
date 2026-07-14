@@ -13,7 +13,7 @@ candidatesRouter.get(
 
     const result = await pool.query(
       `SELECT auth_sub, email, desired_role, location, experience, portfolio_url,
-              skills, bio, resume_filename, avatar_url
+              skills, bio, resume_filename, resume_data, avatar_url
        FROM profiles
        WHERE role = 'candidate'
        ORDER BY updated_at DESC`,

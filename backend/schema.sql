@@ -56,6 +56,9 @@ ALTER TABLE applications DROP COLUMN IF EXISTS role;
 -- defaults never applied to the existing status/applied_on columns.
 ALTER TABLE applications ALTER COLUMN status SET DEFAULT 'Applied';
 ALTER TABLE applications ALTER COLUMN applied_on SET DEFAULT CURRENT_DATE;
+-- Recruiter-left note on an application, visible to the candidate alongside
+-- the status (e.g. post-interview feedback).
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback TEXT;
 
 -- Enforced in the DB, not just checked in the route, so two near-simultaneous
 -- "Apply" submissions can't race past a check-then-insert into two rows.
@@ -87,6 +90,10 @@ CREATE TABLE IF NOT EXISTS profiles (
   skills TEXT,
   bio TEXT,
   resume_filename TEXT,
+  -- the resume file itself, stored as a data: URL (no S3/object storage
+  -- wired up yet) — resume_filename alone let you save a name but never
+  -- actually let anyone open the file
+  resume_data TEXT,
 
   -- recruiter fields
   company_name TEXT,
@@ -111,6 +118,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 -- (CREATE TABLE IF NOT EXISTS won't retroactively add columns) should still
 -- pick it up.
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS resume_data TEXT;
 
 -- Databases created before dual-role support had auth_sub alone as the
 -- primary key — widen it so the same login can hold one row per role.

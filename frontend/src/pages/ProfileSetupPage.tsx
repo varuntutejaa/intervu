@@ -9,6 +9,7 @@ import {
   type CandidateFields,
   type RecruiterFields,
 } from "../components/ProfileFields";
+import { MAX_RESUME_BYTES, readFileAsDataUrl } from "../lib/files";
 
 export default function ProfileSetupPage({
   onNavigateHome,
@@ -44,11 +45,21 @@ export default function ProfileSetupPage({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (resume && resume.size > MAX_RESUME_BYTES) {
+      setError("Please choose a resume under 4MB.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const fields =
         role === "candidate"
-          ? { ...candidate, resumeFilename: resume?.name }
+          ? {
+              ...candidate,
+              resumeFilename: resume?.name,
+              resumeData: resume ? await readFileAsDataUrl(resume) : undefined,
+            }
           : { ...recruiter, companyLogoFilename: companyLogo?.name };
       await saveProfile(fields);
       onComplete();
