@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { motion } from "motion/react";
 import { Briefcase, ChevronDown, ChevronRight, Circle, Eye, EyeOff, Upload, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { signInWithGithub, signInWithGoogle } from "./firebase";
 
 export type Role = "candidate" | "recruiter";
 
@@ -156,78 +155,47 @@ export function SocialButton({
   label,
   onClick,
   disabled,
+  href,
 }: {
   icon: IconComponent;
   label: string;
   onClick?: () => void;
   disabled?: boolean;
+  href?: string;
 }) {
+  const className =
+    "flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-black text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50";
+
+  if (href) {
+    return (
+      <a href={href} className={className}>
+        <Icon className="h-4 w-4" />
+        {label}
+      </a>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-black text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-    >
+    <button type="button" onClick={onClick} disabled={disabled} className={className}>
       <Icon className="h-4 w-4" />
       {label}
     </button>
   );
 }
 
-// Google/Github buttons plus the "Or" divider — these three always appear
+// Google/Github links plus the "Or" divider — these three always appear
 // together, in this order, across every Aurora auth page. Cognito remains
-// the system of record for email/password; these two go through Firebase's
-// popup flow instead (Cognito can't federate with GitHub natively), and the
-// resulting ID token is verified server-side into the same session shape a
-// Cognito login produces.
-export function SocialAuthOptions({
-  onSuccess,
-  onError,
-}: {
-  onSuccess: () => void;
-  onError: (message: string) => void;
-}) {
-  const [pending, setPending] = useState<"google" | "github" | null>(null);
-
-  const handle = async (provider: "google" | "github") => {
-    setPending(provider);
-    try {
-      const idToken = await (provider === "google" ? signInWithGoogle() : signInWithGithub());
-      const res = await fetch("/api/auth/social-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idToken }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        onError(data.error ?? "Couldn't sign in. Try again.");
-        return;
-      }
-      onSuccess();
-    } catch {
-      onError("Couldn't sign in. Try again.");
-    } finally {
-      setPending(null);
-    }
-  };
-
+// the system of record for email/password; these two are plain links to
+// this server's OAuth kickoff routes, which redirect through the
+// provider's own login page and back to a callback that creates the same
+// kind of session cookie the Cognito login route does. Full page
+// navigations, not a popup, so there's no client-side token handling here.
+export function SocialAuthOptions() {
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
-        <SocialButton
-          icon={GoogleLogo}
-          label="Google"
-          onClick={() => handle("google")}
-          disabled={pending !== null}
-        />
-        <SocialButton
-          icon={GithubLogo}
-          label="Github"
-          onClick={() => handle("github")}
-          disabled={pending !== null}
-        />
+        <SocialButton icon={GoogleLogo} label="Google" href="/api/auth/google/start" />
+        <SocialButton icon={GithubLogo} label="Github" href="/api/auth/github/start" />
       </div>
 
       <div className="flex items-center">

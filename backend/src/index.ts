@@ -9,6 +9,7 @@ import { authRouter } from "./authRoutes.js";
 import { candidatesRouter } from "./candidatesRoutes.js";
 import { pool } from "./db.js";
 import { jobsRouter } from "./jobsRoutes.js";
+import { oauthRouter } from "./oauthRoutes.js";
 import { profileRouter } from "./profileRoutes.js";
 
 const app = express();
@@ -37,6 +38,7 @@ app.use(
 );
 
 app.use("/api/auth", authRouter);
+app.use("/api/auth", oauthRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/candidates", candidatesRouter);

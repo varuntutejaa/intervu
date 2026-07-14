@@ -8,7 +8,7 @@ import {
 import { asyncHandler } from "./asyncHandler.js";
 import { COGNITO_CLIENT_ID, cognitoClient, secretHash, usernameFromEmail } from "./cognito.js";
 import { pool } from "./db.js";
-import { getFirebaseAuth } from "./firebase.js";
+import { decodeJwtPayload } from "./jwt.js";
 
 declare module "express-session" {
   interface SessionData {
@@ -137,7 +137,7 @@ authRouter.post(
         return;
       }
 
-      const claims = decodeIdToken(idToken);
+      const claims = decodeJwtPayload<{ sub: string; email: string; name?: string }>(idToken);
       req.session.user = { sub: claims.sub, email: claims.email, name: claims.name };
       req.session.accessToken = result.AuthenticationResult?.AccessToken;
       req.session.refreshToken = result.AuthenticationResult?.RefreshToken;
@@ -145,32 +145,6 @@ authRouter.post(
       res.json({ user: req.session.user });
     } catch (err) {
       res.status(401).json({ error: cognitoErrorMessage(err) });
-    }
-  }),
-);
-
-authRouter.post(
-  "/social-login",
-  asyncHandler(async (req, res) => {
-    const { idToken } = req.body ?? {};
-    if (!idToken) {
-      res.status(400).json({ error: "Missing ID token." });
-      return;
-    }
-
-    try {
-      const decoded = await getFirebaseAuth().verifyIdToken(idToken);
-      // Prefixed so a Firebase uid can never collide with a Cognito sub —
-      // the two providers otherwise share nothing that guarantees uniqueness.
-      req.session.user = {
-        sub: `firebase:${decoded.uid}`,
-        email: decoded.email ?? "",
-        name: typeof decoded.name === "string" ? decoded.name : undefined,
-      };
-      res.json({ user: req.session.user });
-    } catch (err) {
-      console.error(err);
-      res.status(401).json({ error: "Couldn't verify your sign-in. Try again." });
     }
   }),
 );
@@ -195,12 +169,6 @@ authRouter.get(
     res.json({ user: req.session.user, role: result.rows[0]?.role ?? null });
   }),
 );
-
-function decodeIdToken(idToken: string): { sub: string; email: string; name?: string } {
-  const payload = idToken.split(".")[1];
-  const json = Buffer.from(payload, "base64url").toString("utf8");
-  return JSON.parse(json);
-}
 
 function cognitoErrorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : "";

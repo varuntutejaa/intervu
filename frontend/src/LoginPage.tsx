@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
   AuroraRoleQuestion,
@@ -29,6 +29,14 @@ export default function LoginPage({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Google/GitHub sign-in is a full-page redirect through the provider and
+  // back to a backend callback, which lands here with ?error=... if it
+  // failed — there's no JS-level success/failure to handle directly.
+  useEffect(() => {
+    const message = new URLSearchParams(window.location.search).get("error");
+    if (message) setError(message);
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -87,7 +95,7 @@ export default function LoginPage({
             </p>
           </div>
 
-          <SocialAuthOptions onSuccess={onLoginSuccess} onError={setError} />
+          <SocialAuthOptions />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <InputGroup
