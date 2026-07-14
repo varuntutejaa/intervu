@@ -2,6 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { pool } from "../lib/db.js";
 import { requireRole } from "../middleware/requireRole.js";
+import { APPLICATION_STATUSES, RECOMMENDATIONS } from "../lib/applicationStatus.js";
 
 export const jobsRouter = Router();
 
@@ -119,6 +120,49 @@ jobsRouter.get(
 
     const totalApplicants = Object.values(byStatus).reduce((sum, n) => sum + n, 0);
 
+    // Platform-wide figures (not scoped to this recruiter's own postings) —
+    // "Total candidates" only makes sense across the whole platform, so the
+    // rest of this dashboard's aggregate numbers follow the same scope.
+    const candidateCount = await pool.query(
+      "SELECT count(*)::int AS count FROM profiles WHERE role = 'candidate'",
+    );
+    const resumeCount = await pool.query(
+      "SELECT count(*)::int AS count FROM profiles WHERE role = 'candidate' AND resume_data IS NOT NULL",
+    );
+    const topCompanies = await pool.query(
+      `SELECT COALESCE(a.company, j.company) AS company, count(*)::int AS count
+       FROM applications a
+       LEFT JOIN jobs j ON j.id = a.job_id
+       WHERE COALESCE(a.company, j.company) IS NOT NULL
+       GROUP BY COALESCE(a.company, j.company)
+       ORDER BY count DESC
+       LIMIT 5`,
+    );
+    // Of applications that at least reached "Interview Scheduled", what
+    // share moved past just being scheduled (rounds actually happened,
+    // whichever way they ended)? Applications still sitting at "Applied"
+    // haven't started the interview process yet, so they're excluded from
+    // both sides of this ratio.
+    const interviewStages = [
+      "Interview Scheduled",
+      "Technical Round",
+      "HR Round",
+      "Offer Received",
+      "Rejected",
+    ];
+    const completedStages = ["Technical Round", "HR Round", "Offer Received", "Rejected"];
+    const interviewedCount = await pool.query(
+      "SELECT count(*)::int AS count FROM applications WHERE status = ANY($1)",
+      [interviewStages],
+    );
+    const completedCount = await pool.query(
+      "SELECT count(*)::int AS count FROM applications WHERE status = ANY($1)",
+      [completedStages],
+    );
+    const totalInterviewed = interviewedCount.rows[0].count;
+    const interviewCompletionRate =
+      totalInterviewed > 0 ? Math.round((completedCount.rows[0].count / totalInterviewed) * 100) : 0;
+
     res.json({
       totalJobs: jobs.rows.length,
       openJobs: jobs.rows.filter((j) => j.status === "open").length,
@@ -130,6 +174,10 @@ jobsRouter.get(
         status: job.status,
         ...perJobCounts.get(job.id),
       })),
+      totalCandidates: candidateCount.rows[0].count,
+      totalResumesUploaded: resumeCount.rows[0].count,
+      topCompanies: topCompanies.rows,
+      interviewCompletionRate,
     });
   }),
 );
@@ -157,7 +205,9 @@ jobsRouter.get(
     }
 
     const result = await pool.query(
-      `SELECT a.id AS application_id, a.status, a.applied_on, a.feedback,
+      `SELECT a.id AS application_id, a.status, a.applied_on,
+              a.feedback_technical_rating, a.feedback_communication_rating, a.feedback_overall_rating,
+              a.feedback_strengths, a.feedback_weaknesses, a.feedback_recommendation,
               p.auth_sub, p.email, p.desired_role, p.location, p.experience,
               p.portfolio_url, p.skills, p.bio, p.resume_filename, p.resume_data, p.avatar_url
        FROM applications a
@@ -170,12 +220,11 @@ jobsRouter.get(
   }),
 );
 
-const APPLICATION_STATUSES = ["Applied", "Scheduled", "Interviewing", "Offer", "Rejected"];
-
-// Lets a recruiter set status and leave feedback (e.g. post-interview
-// notes) on an application to one of their own jobs — scoped to jobId so
-// the ownership check above is reused, rather than trusting applicationId
-// alone.
+// Lets a recruiter set status and leave structured post-interview feedback
+// on an application to one of their own jobs — scoped to jobId so the
+// ownership check above is reused, rather than trusting applicationId
+// alone. Candidates can only ever see feedback tied to their own
+// applications (applications.ts's GET already filters by candidate_sub).
 jobsRouter.patch(
   "/:id/applicants/:applicationId",
   asyncHandler(async (req, res) => {
@@ -200,17 +249,62 @@ jobsRouter.patch(
     }
 
     const { status, feedback } = req.body ?? {};
-    if (status !== undefined && !APPLICATION_STATUSES.includes(status)) {
+    if (status !== undefined && !(APPLICATION_STATUSES as readonly string[]).includes(status)) {
       res.status(400).json({ error: "Invalid status." });
       return;
     }
 
+    const fb = feedback ?? {};
+    const ratingFields: [string, unknown][] = [
+      ["technicalRating", fb.technicalRating],
+      ["communicationRating", fb.communicationRating],
+      ["overallRating", fb.overallRating],
+    ];
+    const ratings: Record<string, number | null> = {};
+    for (const [key, value] of ratingFields) {
+      if (value === undefined || value === null) {
+        ratings[key] = null;
+        continue;
+      }
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        res.status(400).json({ error: "Ratings must be whole numbers from 1 to 5." });
+        return;
+      }
+      ratings[key] = n;
+    }
+    if (
+      fb.recommendation !== undefined &&
+      fb.recommendation !== null &&
+      !(RECOMMENDATIONS as readonly string[]).includes(fb.recommendation)
+    ) {
+      res.status(400).json({ error: "Invalid recommendation." });
+      return;
+    }
+
     const result = await pool.query(
-      `UPDATE applications
-       SET status = COALESCE($1, status), feedback = COALESCE($2, feedback)
-       WHERE id = $3 AND job_id = $4
-       RETURNING id, status, feedback`,
-      [status ?? null, feedback ?? null, applicationId, jobId],
+      `UPDATE applications SET
+         status = COALESCE($1, status),
+         feedback_technical_rating = COALESCE($2, feedback_technical_rating),
+         feedback_communication_rating = COALESCE($3, feedback_communication_rating),
+         feedback_overall_rating = COALESCE($4, feedback_overall_rating),
+         feedback_strengths = COALESCE($5, feedback_strengths),
+         feedback_weaknesses = COALESCE($6, feedback_weaknesses),
+         feedback_recommendation = COALESCE($7, feedback_recommendation)
+       WHERE id = $8 AND job_id = $9
+       RETURNING id, status, feedback_technical_rating, feedback_communication_rating,
+                 feedback_overall_rating, feedback_strengths, feedback_weaknesses, feedback_recommendation`,
+      [
+        status ?? null,
+        ratings.technicalRating,
+        ratings.communicationRating,
+        ratings.overallRating,
+        fb.strengths ?? null,
+        fb.weaknesses ?? null,
+        fb.recommendation ?? null,
+        applicationId,
+        jobId,
+      ],
     );
     if (result.rowCount === 0) {
       res.status(404).json({ error: "Application not found for this job." });

@@ -1,7 +1,7 @@
 import "dotenv/config";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
-import session from "express-session";
 import type { NextFunction, Request, Response } from "express";
 import { pool } from "./lib/db.js";
 import { asyncHandler } from "./middleware/asyncHandler.js";
@@ -24,18 +24,7 @@ app.use(
 // Default 100kb is too small for a base64-encoded avatar (up to 2MB raw)
 // and resume (up to 4MB raw) sent together as part of the profile payload.
 app.use(express.json({ limit: "10mb" }));
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET ?? "dev-only-secret-change-me",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    },
-  }),
-);
+app.use(cookieParser());
 
 app.use("/api/auth", authRouter);
 app.use("/api/auth", oauthRouter);

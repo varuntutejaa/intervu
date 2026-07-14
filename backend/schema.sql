@@ -41,11 +41,6 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
--- Added after the fact for databases created with the original 4-value
--- enum — ADD VALUE can't run inside the same transaction it's later used
--- in, but this file never uses 'Scheduled' itself, so that's not an issue.
-ALTER TYPE application_status ADD VALUE IF NOT EXISTS 'Scheduled' BEFORE 'Interviewing';
-
 -- One row per candidate application to a specific job — job details and
 -- applicant identity are looked up via job_id/candidate_sub rather than
 -- duplicated here.
@@ -59,18 +54,69 @@ CREATE TABLE IF NOT EXISTS applications (
 
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE CASCADE;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS candidate_sub TEXT;
-ALTER TABLE applications DROP COLUMN IF EXISTS company;
-ALTER TABLE applications DROP COLUMN IF EXISTS role;
 -- The table predates this file's CREATE TABLE ... DEFAULT clauses, so those
 -- defaults never applied to the existing status/applied_on columns.
 ALTER TABLE applications ALTER COLUMN status SET DEFAULT 'Applied';
 ALTER TABLE applications ALTER COLUMN applied_on SET DEFAULT CURRENT_DATE;
--- Recruiter-left note on an application, visible to the candidate alongside
--- the status (e.g. post-interview feedback).
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback TEXT;
+
+-- Candidates can also log applications made outside the platform (no
+-- job_id), so job_id is nullable and company/position_title carry the
+-- details directly for those rows. For applications to a real posting on
+-- this platform, these stay NULL and the values are looked up via job_id
+-- instead — see the COALESCE(a.company, j.company) pattern in the routes.
+ALTER TABLE applications ALTER COLUMN job_id DROP NOT NULL;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS position_title TEXT;
+
+-- Replaces the original 4-stage pipeline with the full hiring pipeline
+-- (Applied -> Interview Scheduled -> Technical Round -> HR Round ->
+-- Offer Received / Rejected). Postgres can't drop/rename enum values
+-- in place, so this builds a new type, migrates the column across
+-- (mapping old labels to their closest new stage), then swaps the name in
+-- — safe to re-run since the USING mapping also passes new-format values
+-- through unchanged.
+DO $$ BEGIN
+  CREATE TYPE application_status_v2 AS ENUM (
+    'Applied', 'Interview Scheduled', 'Technical Round', 'HR Round', 'Offer Received', 'Rejected'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE applications ALTER COLUMN status DROP DEFAULT;
+ALTER TABLE applications ALTER COLUMN status TYPE application_status_v2 USING (
+  CASE status::text
+    WHEN 'Scheduled' THEN 'Interview Scheduled'
+    WHEN 'Interviewing' THEN 'Technical Round'
+    WHEN 'Offer' THEN 'Offer Received'
+    WHEN 'Applied' THEN 'Applied'
+    WHEN 'Rejected' THEN 'Rejected'
+    WHEN 'Interview Scheduled' THEN 'Interview Scheduled'
+    WHEN 'Technical Round' THEN 'Technical Round'
+    WHEN 'HR Round' THEN 'HR Round'
+    WHEN 'Offer Received' THEN 'Offer Received'
+    ELSE 'Applied'
+  END
+)::application_status_v2;
+ALTER TABLE applications ALTER COLUMN status SET DEFAULT 'Applied';
+DROP TYPE IF EXISTS application_status;
+ALTER TYPE application_status_v2 RENAME TO application_status;
+
+-- Structured post-interview feedback, replacing the old single free-text
+-- note — a recruiter fills these in from an applicant's card. Ratings are
+-- 1-5; recommendation is one of RECOMMENDATIONS in applicationStatus.ts.
+ALTER TABLE applications DROP COLUMN IF EXISTS feedback;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_technical_rating SMALLINT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_communication_rating SMALLINT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_overall_rating SMALLINT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_strengths TEXT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_weaknesses TEXT;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_recommendation TEXT;
 
 -- Enforced in the DB, not just checked in the route, so two near-simultaneous
 -- "Apply" submissions can't race past a check-then-insert into two rows.
+-- Manually-logged applications (job_id NULL) never collide here — Postgres
+-- treats every NULL as distinct from every other NULL in a unique index.
 CREATE UNIQUE INDEX IF NOT EXISTS applications_job_candidate_unique
   ON applications (job_id, candidate_sub);
 

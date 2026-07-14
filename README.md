@@ -36,21 +36,28 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 ## Features
 
 **Auth**
-- Email/password via AWS Cognito (email verification flow included)
+- Email/password via AWS Cognito (email verification flow included); Cognito is the sole system of record for passwords — it hashes and salts them internally, the application never sees or stores a password or its hash
 - Google and GitHub sign-in via direct OAuth 2.0 (no third-party auth service in the loop)
-- Session-based auth (httpOnly cookies), not JWT-in-localStorage
+- JWT-based auth: the backend signs its own token after login and carries it in an httpOnly cookie — real JWT authentication, not JWT-in-localStorage, and stateless (no server-side session store, so logins survive a backend restart)
+- Role-Based Access Control enforced server-side on every protected route (`requireRole` checks the database, not the JWT claim alone) — hiding a button on the frontend is never the actual gate
 - Role-aware login: signing in as the wrong role for an account routes you to set that role up, rather than silently logging into the wrong context
 
 **Candidates**
 - Guided profile setup (desired role, experience, skills, portfolio, resume, bio, avatar)
-- Job board with job type / work mode / experience / salary filters visible per listing
+- Resume upload, view, replace, and delete (PDF/DOC/DOCX, capped client-side)
+- Job board with search plus job type / work mode / experience / salary filters
 - One-click apply with a full job-detail view (description, skills, deadline)
-- Applications dashboard showing status per application
+- Application tracker: applications to jobs posted on Intervu and applications made elsewhere (manually logged with company/position/date) live in one list
+- Full 6-stage status pipeline — Applied → Interview Scheduled → Technical Round → HR Round → Offer Received / Rejected — editable by the candidate at any time
+- Search, filter by status, sort by applied date, and delete on the applications dashboard
+- View structured recruiter feedback (ratings, strengths, weaknesses, recommendation) on their own applications only
 
 **Recruiters**
 - Post a job with structured fields (type, mode, experience, salary range, skills, deadline) — auto-assigned a shareable 6-digit reference code
-- Recruiter dashboard listing every job they've posted
-- Per-job applicant view — every candidate who applied, with their full profile
+- Edit or close/reopen a posting after it's live
+- Recruiter dashboard listing every job they've posted, plus platform-wide stats: total candidates, resumes uploaded, applications per status, top applied companies, interview completion rate
+- Per-job applicant view — every candidate who applied, with their full profile and resume
+- Move an applicant through the status pipeline and leave structured post-interview feedback (technical/communication/overall ratings, strengths, weaknesses, hire recommendation)
 - Browse all candidates platform-wide
 
 **Platform**
@@ -83,7 +90,7 @@ flowchart LR
     EC2 --> GitHub[GitHub OAuth]
 ```
 
-Frontend and backend are served from the **same CloudFront domain** — CloudFront routes `/api/*` to the EC2 backend and everything else to the S3-hosted static build. That means no CORS configuration and no mixed-content issues in production, and session cookies work exactly the same way as they do in local dev (where Vite's dev server proxies `/api` to the backend instead).
+Frontend and backend are served from the **same CloudFront domain** — CloudFront routes `/api/*` to the EC2 backend and everything else to the S3-hosted static build. That means no CORS configuration and no mixed-content issues in production, and the auth cookie works exactly the same way as it does in local dev (where Vite's dev server proxies `/api` to the backend instead).
 
 ## Project structure
 
@@ -91,8 +98,8 @@ Frontend and backend are served from the **same CloudFront domain** — CloudFro
 backend/src/
   index.ts            # Express app entry point
   routes/              # One file per resource: auth, oauth, profile, jobs, candidates, applications
-  middleware/           # asyncHandler, requireRole
-  lib/                  # db pool, Cognito client, JWT decode, profile-role helpers
+  middleware/           # asyncHandler, requireRole, auth (JWT cookie read/set/clear)
+  lib/                  # db pool, Cognito client, JWT sign/verify, profile-role helpers, application status list
 
 frontend/src/
   App.tsx              # Client-side router / route table
@@ -141,13 +148,13 @@ All backend configuration lives in `backend/.env` (see `backend/.env.example` fo
 | `CORS_ORIGIN` | Allowed frontend origin for CORS |
 | `PUBLIC_URL` | The externally-reachable origin the app is served from — used to build OAuth redirect URIs and the post-login redirect target |
 | `COGNITO_REGION`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` | Cognito User Pool app client |
-| `SESSION_SECRET` | Random string signing the session cookie |
+| `JWT_SECRET` | Random string signing this app's own auth JWT (httpOnly cookie) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth App |
 
 ## API reference
 
-All routes are mounted under `/api`. Session-authenticated routes read a session cookie set at login; role-gated routes 403 if the account doesn't have that profile.
+All routes are mounted under `/api`. JWT-authenticated routes read this app's own signed JWT from an httpOnly cookie set at login (see [Security notes](#security-notes)); role-gated routes 403 if the account doesn't have that profile — checked against the database on every request, not just the JWT claim.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -156,19 +163,25 @@ All routes are mounted under `/api`. Session-authenticated routes read a session
 | POST | `/auth/resend-code` | — | Resend the verification code |
 | POST | `/auth/login` | — | Email/password login |
 | GET | `/auth/google/start`, `/auth/github/start` | — | Kick off OAuth redirect |
-| GET | `/auth/google/callback`, `/auth/github/callback` | — | OAuth callback, establishes session |
-| POST | `/auth/logout` | Session | Destroy session |
-| GET | `/auth/me` | Session | Current user, active role, and all roles the account has |
-| POST | `/auth/switch-role` | Session | Change which profile (candidate/recruiter) is active |
-| GET | `/profile` | Session | Fetch the active (or `?role=`) profile |
-| POST | `/profile` | Session | Create/update a profile for a given role |
-| GET | `/jobs` | — | Public job listing |
+| GET | `/auth/google/callback`, `/auth/github/callback` | — | OAuth callback, sets the auth cookie |
+| POST | `/auth/logout` | JWT | Clear the auth cookie |
+| GET | `/auth/me` | JWT | Current user, active role, and all roles the account has |
+| POST | `/auth/switch-role` | JWT | Change which profile (candidate/recruiter) is active |
+| GET | `/profile` | JWT | Fetch the active (or `?role=`) profile |
+| POST | `/profile` | JWT | Create/update a profile for a given role |
+| DELETE | `/profile/resume` | Candidate | Remove the candidate's uploaded resume |
+| GET | `/jobs` | — | Public job listing (search + type/mode/experience/location filters) |
 | GET | `/jobs/mine` | Recruiter | Jobs posted by the current account |
+| GET | `/jobs/stats` | Recruiter | Own posting stats plus platform-wide candidate/resume/company/interview figures |
 | GET | `/jobs/:id/applicants` | Recruiter (owner) | Applicants for a specific job |
+| PATCH | `/jobs/:id/applicants/:applicationId` | Recruiter (owner) | Update an applicant's status and structured interview feedback |
 | POST | `/jobs` | Recruiter | Post a new job |
+| PATCH | `/jobs/:id` | Recruiter (owner) | Edit a posting, or close/reopen it via `{ status }` |
 | GET | `/candidates` | Recruiter | Every candidate profile |
-| GET | `/applications` | Candidate | The current account's applications |
-| POST | `/applications` | Candidate | Apply to a job (idempotent) |
+| GET | `/applications` | Candidate | The current account's applications (`?q=`, `?status=`, `?sort=asc\|desc`) |
+| POST | `/applications` | Candidate | Apply to a posted job (`jobId`), or log one made elsewhere (`company` + `position`) |
+| PATCH | `/applications/:id` | Candidate (owner) | Update status, company, position, or applied date |
+| DELETE | `/applications/:id` | Candidate (owner) | Remove an application |
 | GET | `/health` | — | Liveness check, verifies DB connectivity |
 
 ## Deployment
@@ -181,10 +194,10 @@ Both workflows also support manual runs via `workflow_dispatch` from the Actions
 
 ## Security notes
 
-- Passwords never touch the application layer — Cognito is the sole system of record for them
-- Session cookies are `httpOnly`; `secure` is enabled automatically in production
+- **Password hashing:** passwords never touch the application layer — Cognito is the sole system of record for them and hashes/salts every password internally (industry-standard SRP-based storage); the app never sees, stores, or has access to a password or its hash. Building a second, parallel password store here would be a strictly worse security posture than delegating to Cognito.
+- **JWT authentication:** the backend signs its own JWT after login (`lib/jwt.ts`) and carries it in an `httpOnly`, `sameSite=lax` cookie — `secure` is enabled automatically in production. This is a real, stateless JWT (no server-side session store — a backend restart no longer logs anyone out), while still keeping the XSS protection of `httpOnly` that JWT-in-localStorage gives up.
+- **RBAC enforced server-side:** `requireRole` checks the `profiles` table on every protected request — the frontend hiding a button is a UX nicety, never the actual gate. A recruiter can only see applicants for jobs *they* posted; a candidate can only see their own applications and only their own interview feedback.
 - Every database query is parameterized (no string-built SQL)
-- Every ownership/role check is enforced server-side (e.g., a recruiter can only see applicants for jobs *they* posted; a candidate can only see their own applications)
 - OAuth client secrets and the Cognito app secret never reach the frontend bundle
 
 ## Known limitations

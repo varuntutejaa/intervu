@@ -114,8 +114,10 @@ export default function JobsPage({
     if (role !== "candidate") return;
     fetch("/api/applications", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: { job_id: number }[]) => {
-        setAppliedJobIds(new Set(data.map((app) => app.job_id)));
+      .then((data: { job_id: number | null }[]) => {
+        setAppliedJobIds(
+          new Set(data.map((app) => app.job_id).filter((id): id is number => id !== null)),
+        );
       })
       .catch(() => {});
   }, [role]);

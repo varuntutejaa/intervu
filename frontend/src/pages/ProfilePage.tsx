@@ -85,6 +85,7 @@ export default function ProfilePage({
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingResume, setIsDeletingResume] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -122,6 +123,26 @@ export default function ProfilePage({
       })
       .catch(() => setStatus("empty"));
   }, []);
+
+  const handleDeleteResume = async () => {
+    setResumeError("");
+    setIsDeletingResume(true);
+    try {
+      const res = await fetch("/api/profile/resume", { method: "DELETE", credentials: "include" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setResumeError(data.error ?? "Couldn't delete resume. Try again.");
+        return;
+      }
+      setResume(null);
+      setExistingResumeFilename(undefined);
+      setExistingResumeData(undefined);
+    } catch {
+      setResumeError("Couldn't reach the server. Is the API running?");
+    } finally {
+      setIsDeletingResume(false);
+    }
+  };
 
   const handleAvatarPick = async (file: File | null) => {
     setAvatarError("");
@@ -313,14 +334,24 @@ export default function ProfilePage({
                       existingLabel={existingResumeFilename}
                     />
                     {existingResumeData && !resume && (
-                      <a
-                        href={existingResumeData}
-                        download={existingResumeFilename ?? "resume"}
-                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white"
-                      >
-                        <FileText className="h-3 w-3" />
-                        View current resume
-                      </a>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                        <a
+                          href={existingResumeData}
+                          download={existingResumeFilename ?? "resume"}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white"
+                        >
+                          <FileText className="h-3 w-3" />
+                          View current resume
+                        </a>
+                        <button
+                          type="button"
+                          onClick={handleDeleteResume}
+                          disabled={isDeletingResume}
+                          className="text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {isDeletingResume ? "Removing…" : "Remove resume"}
+                        </button>
+                      </div>
                     )}
                     {resumeError && <p className="mt-1.5 text-xs text-red-400">{resumeError}</p>}
                   </div>

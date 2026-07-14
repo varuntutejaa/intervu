@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { getAuthUser, setAuthCookie } from "../middleware/auth.js";
+import { requireRole } from "../middleware/requireRole.js";
 import { pool } from "../lib/db.js";
 
 export const profileRouter = Router();
@@ -7,22 +9,23 @@ export const profileRouter = Router();
 profileRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    if (!req.session.user) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
 
     // One account can hold both a candidate and a recruiter profile — which
-    // one this fetches defaults to whichever is active for this session,
-    // but callers (e.g. viewing the "other" role's data) can ask directly.
-    const role = typeof req.query.role === "string" ? req.query.role : req.session.activeRole;
+    // one this fetches defaults to whichever is active right now, but
+    // callers (e.g. viewing the "other" role's data) can ask directly.
+    const role = typeof req.query.role === "string" ? req.query.role : authUser.activeRole;
     if (role !== "candidate" && role !== "recruiter") {
       res.json({ profile: null });
       return;
     }
 
     const result = await pool.query("SELECT * FROM profiles WHERE auth_sub = $1 AND role = $2", [
-      req.session.user.sub,
+      authUser.sub,
       role,
     ]);
     res.json({ profile: result.rows[0] ?? null });
@@ -32,7 +35,8 @@ profileRouter.get(
 profileRouter.post(
   "/",
   asyncHandler(async (req, res) => {
-    if (!req.session.user) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
@@ -44,7 +48,7 @@ profileRouter.post(
     }
 
     const f = fields ?? {};
-    const { sub, email } = req.session.user;
+    const { sub, email } = authUser;
 
     await pool.query(
       `INSERT INTO profiles (
@@ -103,7 +107,23 @@ profileRouter.post(
     );
 
     // Saving/updating a profile makes it the one "in view" going forward.
-    req.session.activeRole = role;
+    setAuthCookie(res, { ...authUser, activeRole: role });
     res.json({ status: "saved" });
+  }),
+);
+
+// Clears a candidate's resume without touching the rest of their profile.
+profileRouter.delete(
+  "/resume",
+  asyncHandler(async (req, res) => {
+    const user = await requireRole(req, res, "candidate");
+    if (!user) return;
+
+    await pool.query(
+      `UPDATE profiles SET resume_filename = NULL, resume_data = NULL, updated_at = now()
+       WHERE auth_sub = $1 AND role = 'candidate'`,
+      [user.sub],
+    );
+    res.json({ status: "deleted" });
   }),
 );

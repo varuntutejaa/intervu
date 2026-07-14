@@ -6,22 +6,10 @@ import {
   SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { clearAuthCookie, getAuthUser, setAuthCookie } from "../middleware/auth.js";
 import { COGNITO_CLIENT_ID, cognitoClient, secretHash, usernameFromEmail } from "../lib/cognito.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
 import { getRolesForSub, resolveActiveRole } from "../lib/profiles.js";
-
-declare module "express-session" {
-  interface SessionData {
-    user?: { sub: string; email: string; name?: string };
-    accessToken?: string;
-    refreshToken?: string;
-    // Which of the account's profiles (candidate and/or recruiter) is
-    // currently "in view" — a display preference, not itself an
-    // authorization check (see requireRole, which checks the profiles
-    // table directly).
-    activeRole?: "candidate" | "recruiter";
-  }
-}
 
 export const authRouter = Router();
 
@@ -144,55 +132,61 @@ authRouter.post(
 
       const claims = decodeJwtPayload<{ sub: string; email: string; name?: string }>(idToken);
 
-      req.session.user = { sub: claims.sub, email: claims.email, name: claims.name };
-      req.session.accessToken = result.AuthenticationResult?.AccessToken;
-      req.session.refreshToken = result.AuthenticationResult?.RefreshToken;
+      const user = { sub: claims.sub, email: claims.email, name: claims.name };
       // The role picked on the login screen isn't just display copy — trust
       // it as the active role even if this account has no profile for it
       // yet (authentication already proved who they are); the frontend
       // sends them to profile setup instead of home in that case, same as
       // switch-role does. Falls back to whichever profile exists if no
       // role was picked at all.
-      req.session.activeRole =
+      const activeRole =
         role === "candidate" || role === "recruiter"
           ? role
           : ((await resolveActiveRole(claims.sub)) ?? undefined);
 
-      res.json({ user: req.session.user });
+      setAuthCookie(res, { ...user, activeRole });
+      res.json({ user });
     } catch (err) {
       res.status(401).json({ error: cognitoErrorMessage(err) });
     }
   }),
 );
 
-authRouter.post("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.json({ status: "ok" });
-  });
+authRouter.post("/logout", (_req, res) => {
+  clearAuthCookie(res);
+  res.json({ status: "ok" });
 });
 
 authRouter.get(
   "/me",
   asyncHandler(async (req, res) => {
-    if (!req.session.user) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
 
-    const roles = await getRolesForSub(req.session.user.sub);
-    res.json({ user: req.session.user, role: req.session.activeRole ?? null, roles });
+    const roles = await getRolesForSub(authUser.sub);
+    res.json({
+      user: { sub: authUser.sub, email: authUser.email, name: authUser.name },
+      role: authUser.activeRole ?? null,
+      roles,
+    });
   }),
 );
 
 // Flips which profile (candidate or recruiter) is "in view" for this
-// session — doesn't require the target role to already have a saved
+// account — doesn't require the target role to already have a saved
 // profile, since switching to a role you haven't set up yet is exactly how
 // an existing account adds the other one (the frontend sends them to
-// profile setup when `roles` doesn't include the target).
+// profile setup when `roles` doesn't include the target). Since the active
+// role lives inside the JWT itself, changing it means re-signing and
+// re-setting the cookie rather than mutating server-side state.
 authRouter.post(
   "/switch-role",
   asyncHandler(async (req, res) => {
-    if (!req.session.user) {
+    const authUser = getAuthUser(req);
+    if (!authUser) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
@@ -203,7 +197,7 @@ authRouter.post(
       return;
     }
 
-    req.session.activeRole = role;
+    setAuthCookie(res, { ...authUser, activeRole: role });
     res.json({ role });
   }),
 );

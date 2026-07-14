@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
+import { setAuthCookie } from "../middleware/auth.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
 import { resolveActiveRole } from "../lib/profiles.js";
 
@@ -75,11 +76,12 @@ oauthRouter.get(
       const sub = `google:${claims.sub}`;
       const role = roleFromState(req.query.state);
 
-      req.session.user = { sub, email: claims.email ?? "", name: claims.name };
+      const user = { sub, email: claims.email ?? "", name: claims.name };
       // Trust the role picked on the login screen even if this account has
       // no profile for it yet — the frontend sends them to profile setup
       // instead of home in that case, same as switch-role does.
-      req.session.activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
+      const activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
+      setAuthCookie(res, { ...user, activeRole });
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);
@@ -161,12 +163,13 @@ oauthRouter.get(
       const sub = `github:${user.id}`;
       const role = roleFromState(req.query.state);
 
-      req.session.user = {
+      const authUser = {
         sub,
         email,
         name: typeof user.name === "string" ? user.name : user.login,
       };
-      req.session.activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
+      const activeRole = role ?? ((await resolveActiveRole(sub)) ?? undefined);
+      setAuthCookie(res, { ...authUser, activeRole });
       res.redirect(PUBLIC_URL);
     } catch (err) {
       console.error(err);

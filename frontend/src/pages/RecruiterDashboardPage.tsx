@@ -27,6 +27,10 @@ type Stats = {
   totalApplicants: number;
   byStatus: Record<string, number>;
   jobs: { id: number; title: string; status: string; total: number; byStatus: Record<string, number> }[];
+  totalCandidates: number;
+  totalResumesUploaded: number;
+  topCompanies: { company: string; count: number }[];
+  interviewCompletionRate: number;
 };
 
 const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"].map((v) => ({
@@ -45,7 +49,12 @@ type Applicant = {
   application_id: number;
   status: string;
   applied_on: string;
-  feedback: string | null;
+  feedback_technical_rating: number | null;
+  feedback_communication_rating: number | null;
+  feedback_overall_rating: number | null;
+  feedback_strengths: string | null;
+  feedback_weaknesses: string | null;
+  feedback_recommendation: string | null;
   auth_sub: string;
   email: string;
   desired_role: string | null;
@@ -59,7 +68,16 @@ type Applicant = {
   avatar_url: string | null;
 };
 
-const APPLICATION_STATUSES = ["Applied", "Scheduled", "Interviewing", "Offer", "Rejected"];
+const APPLICATION_STATUSES = [
+  "Applied",
+  "Interview Scheduled",
+  "Technical Round",
+  "HR Round",
+  "Offer Received",
+  "Rejected",
+];
+const RATING_OPTIONS = [1, 2, 3, 4, 5];
+const RECOMMENDATION_OPTIONS = ["Strong Hire", "Hire", "No Hire", "Strong No Hire"];
 
 function formatSalary(min: number | null, max: number | null) {
   if (!min && !max) return null;
@@ -170,24 +188,67 @@ export default function RecruiterDashboardPage({
         </p>
 
         {stats && (
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-2xl font-bold text-white">{stats.openJobs}</p>
-              <p className="text-xs text-white/40">Open jobs ({stats.totalJobs} total)</p>
+          <>
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">{stats.openJobs}</p>
+                <p className="text-xs text-white/40">Open jobs ({stats.totalJobs} total)</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">{stats.totalApplicants}</p>
+                <p className="text-xs text-white/40">Total applicants</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">
+                  {stats.byStatus["Technical Round"] ?? 0}
+                </p>
+                <p className="text-xs text-white/40">In technical rounds</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">
+                  {stats.byStatus["Offer Received"] ?? 0}
+                </p>
+                <p className="text-xs text-white/40">Offers made</p>
+              </div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-2xl font-bold text-white">{stats.totalApplicants}</p>
-              <p className="text-xs text-white/40">Total applicants</p>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">{stats.totalCandidates}</p>
+                <p className="text-xs text-white/40">Total candidates on Intervu</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">{stats.totalResumesUploaded}</p>
+                <p className="text-xs text-white/40">Resumes uploaded</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-2xl font-bold text-white">{stats.interviewCompletionRate}%</p>
+                <p className="text-xs text-white/40">Interview completion rate</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="truncate text-sm font-semibold text-white">
+                  {stats.topCompanies[0]?.company ?? "—"}
+                </p>
+                <p className="text-xs text-white/40">Top applied company</p>
+              </div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-2xl font-bold text-white">{stats.byStatus.Interviewing ?? 0}</p>
-              <p className="text-xs text-white/40">Interviewing</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-2xl font-bold text-white">{stats.byStatus.Offer ?? 0}</p>
-              <p className="text-xs text-white/40">Offers made</p>
-            </div>
-          </div>
+
+            {stats.topCompanies.length > 0 && (
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs font-medium text-white/50">Top applied companies</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stats.topCompanies.map((c) => (
+                    <span
+                      key={c.company}
+                      className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70"
+                    >
+                      {c.company} · {c.count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -579,19 +640,43 @@ function ApplicantsModal({ job, onClose }: { job: Job; onClose: () => void }) {
   );
 }
 
+type FeedbackForm = {
+  technicalRating: number | null;
+  communicationRating: number | null;
+  overallRating: number | null;
+  strengths: string;
+  weaknesses: string;
+  recommendation: string;
+};
+
+function feedbackFormFromApplicant(applicant: Applicant): FeedbackForm {
+  return {
+    technicalRating: applicant.feedback_technical_rating,
+    communicationRating: applicant.feedback_communication_rating,
+    overallRating: applicant.feedback_overall_rating,
+    strengths: applicant.feedback_strengths ?? "",
+    weaknesses: applicant.feedback_weaknesses ?? "",
+    recommendation: applicant.feedback_recommendation ?? "",
+  };
+}
+
 function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applicant }) {
   const [applicantStatus, setApplicantStatus] = useState(applicant.status);
-  const [feedback, setFeedback] = useState(applicant.feedback ?? "");
+  const [feedback, setFeedback] = useState<FeedbackForm>(feedbackFormFromApplicant(applicant));
   // What's actually saved server-side, tracked separately from props so a
   // successful save doesn't require mutating the applicant object passed
   // down from the parent's fetched list.
   const [savedStatus, setSavedStatus] = useState(applicant.status);
-  const [savedFeedback, setSavedFeedback] = useState(applicant.feedback ?? "");
+  const [savedFeedback, setSavedFeedback] = useState<FeedbackForm>(
+    feedbackFormFromApplicant(applicant),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
-  const dirty = applicantStatus !== savedStatus || feedback !== savedFeedback;
+  const dirty =
+    applicantStatus !== savedStatus ||
+    JSON.stringify(feedback) !== JSON.stringify(savedFeedback);
 
   const handleSave = async () => {
     setError("");
@@ -602,7 +687,17 @@ function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applica
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ status: applicantStatus, feedback }),
+        body: JSON.stringify({
+          status: applicantStatus,
+          feedback: {
+            technicalRating: feedback.technicalRating,
+            communicationRating: feedback.communicationRating,
+            overallRating: feedback.overallRating,
+            strengths: feedback.strengths || null,
+            weaknesses: feedback.weaknesses || null,
+            recommendation: feedback.recommendation || null,
+          },
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -701,18 +796,67 @@ function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applica
               </select>
             </div>
 
-            <label className="mt-3 block text-xs font-medium text-white/50">
-              Feedback for the candidate
-            </label>
-            <textarea
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              placeholder="e.g. notes from the interview, next steps..."
-              rows={2}
-              className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
-            />
+            <p className="mt-4 text-xs font-medium text-white/50">Interview feedback</p>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <RatingSelect
+                label="Technical"
+                value={feedback.technicalRating}
+                onChange={(v) => setFeedback((prev) => ({ ...prev, technicalRating: v }))}
+              />
+              <RatingSelect
+                label="Communication"
+                value={feedback.communicationRating}
+                onChange={(v) => setFeedback((prev) => ({ ...prev, communicationRating: v }))}
+              />
+              <RatingSelect
+                label="Overall"
+                value={feedback.overallRating}
+                onChange={(v) => setFeedback((prev) => ({ ...prev, overallRating: v }))}
+              />
+            </div>
 
-            <div className="mt-2 flex items-center gap-3">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-white/50">Strengths</label>
+                <textarea
+                  value={feedback.strengths}
+                  onChange={(e) => setFeedback((prev) => ({ ...prev, strengths: e.target.value }))}
+                  placeholder="What stood out positively"
+                  rows={2}
+                  className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-white/50">Weaknesses</label>
+                <textarea
+                  value={feedback.weaknesses}
+                  onChange={(e) => setFeedback((prev) => ({ ...prev, weaknesses: e.target.value }))}
+                  placeholder="Areas of concern"
+                  rows={2}
+                  className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="text-xs font-medium text-white/50">Recommendation</label>
+              <select
+                value={feedback.recommendation}
+                onChange={(e) =>
+                  setFeedback((prev) => ({ ...prev, recommendation: e.target.value }))
+                }
+                className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+              >
+                <option value="">No recommendation yet</option>
+                {RECOMMENDATION_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleSave}
@@ -727,6 +871,34 @@ function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applica
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RatingSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-white/50">{label}</label>
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+        className="mt-1.5 h-9 w-full rounded-lg border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+      >
+        <option value="">Not rated</option>
+        {RATING_OPTIONS.map((n) => (
+          <option key={n} value={n}>
+            {n} / 5
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
