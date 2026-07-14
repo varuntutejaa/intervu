@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { asyncHandler } from "./asyncHandler.js";
-import { pool } from "./db.js";
-import { requireRole } from "./requireRole.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { pool } from "../lib/db.js";
+import { requireRole } from "../middleware/requireRole.js";
 
 export const applicationsRouter = Router();
 

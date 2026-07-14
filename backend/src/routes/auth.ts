@@ -5,10 +5,10 @@ import {
   ResendConfirmationCodeCommand,
   SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { asyncHandler } from "./asyncHandler.js";
-import { COGNITO_CLIENT_ID, cognitoClient, secretHash, usernameFromEmail } from "./cognito.js";
-import { pool } from "./db.js";
-import { decodeJwtPayload } from "./jwt.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { COGNITO_CLIENT_ID, cognitoClient, secretHash, usernameFromEmail } from "../lib/cognito.js";
+import { pool } from "../lib/db.js";
+import { decodeJwtPayload } from "../lib/jwt.js";
 
 declare module "express-session" {
   interface SessionData {

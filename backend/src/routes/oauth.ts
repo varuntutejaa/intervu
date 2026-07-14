@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { asyncHandler } from "./asyncHandler.js";
-import { decodeJwtPayload } from "./jwt.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { decodeJwtPayload } from "../lib/jwt.js";
 
 export const oauthRouter = Router();
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { asyncHandler } from "./asyncHandler.js";
-import { pool } from "./db.js";
+import { asyncHandler } from "../middleware/asyncHandler.js";
+import { pool } from "../lib/db.js";
 
 export const profileRouter = Router();
 

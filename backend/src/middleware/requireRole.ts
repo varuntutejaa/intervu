@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { pool } from "./db.js";
+import { pool } from "../lib/db.js";
 
 // Looks up the caller's role from `profiles` (the session only carries
 // identity, not role) and 401s/403s directly on the response when it
