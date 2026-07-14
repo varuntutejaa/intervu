@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Camera } from "lucide-react";
-import type { Role } from "./AuroraLayout";
+import { FileUploadGroup, InputGroup, SelectGroup, TextAreaGroup, type Role } from "./AuroraLayout";
 import { NavBar, type NavUser } from "./LandingChrome";
 import {
-  CandidateProfileFields,
+  COMPANY_SIZE_OPTIONS,
   EMPTY_CANDIDATE,
   EMPTY_RECRUITER,
-  RecruiterProfileFields,
+  EXPERIENCE_OPTIONS,
   type CandidateFields,
   type RecruiterFields,
 } from "./ProfileFields";
@@ -193,7 +193,7 @@ export default function ProfilePage({
         />
       </div>
 
-      <div className="mx-auto max-w-2xl space-y-8 px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
+      <div className="mx-auto max-w-3xl space-y-8 px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
         <div>
           <h1 className="font-fustat text-3xl font-bold text-white">Your profile</h1>
           <p className="mt-2 text-sm text-white/40">
@@ -261,21 +261,119 @@ export default function ProfilePage({
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {role === "candidate" ? (
-                <CandidateProfileFields
-                  values={candidate}
-                  onChange={(patch) => setCandidate((prev) => ({ ...prev, ...patch }))}
-                  resume={resume}
-                  onResumeChange={setResume}
-                  existingResumeFilename={existingResumeFilename}
-                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <InputGroup
+                    label="Desired role"
+                    placeholder="Backend Engineer"
+                    type="text"
+                    value={candidate.desiredRole}
+                    onChange={(desiredRole) => setCandidate((prev) => ({ ...prev, desiredRole }))}
+                  />
+                  <InputGroup
+                    label="Location"
+                    placeholder="San Francisco, CA"
+                    type="text"
+                    value={candidate.location}
+                    onChange={(location) => setCandidate((prev) => ({ ...prev, location }))}
+                  />
+
+                  <SelectGroup
+                    label="Years of experience"
+                    placeholder="Select a range"
+                    value={candidate.experience}
+                    onChange={(experience) => setCandidate((prev) => ({ ...prev, experience }))}
+                    options={EXPERIENCE_OPTIONS}
+                  />
+                  <InputGroup
+                    label="Portfolio / LinkedIn URL"
+                    placeholder="https://linkedin.com/in/you"
+                    type="url"
+                    value={candidate.portfolioUrl}
+                    onChange={(portfolioUrl) => setCandidate((prev) => ({ ...prev, portfolioUrl }))}
+                  />
+
+                  <InputGroup
+                    label="Key skills"
+                    placeholder="React, TypeScript, Node.js"
+                    type="text"
+                    value={candidate.skills}
+                    onChange={(skills) => setCandidate((prev) => ({ ...prev, skills }))}
+                  />
+                  <FileUploadGroup
+                    label="Resume"
+                    file={resume}
+                    onChange={setResume}
+                    accept=".pdf,.doc,.docx"
+                    existingLabel={existingResumeFilename}
+                  />
+
+                  <div className="sm:col-span-2">
+                    <TextAreaGroup
+                      label="Short bio"
+                      placeholder="A couple sentences about your experience and what you're looking for."
+                      value={candidate.bio}
+                      onChange={(bio) => setCandidate((prev) => ({ ...prev, bio }))}
+                    />
+                  </div>
+                </div>
               ) : (
-                <RecruiterProfileFields
-                  values={recruiter}
-                  onChange={(patch) => setRecruiter((prev) => ({ ...prev, ...patch }))}
-                  companyLogo={companyLogo}
-                  onCompanyLogoChange={setCompanyLogo}
-                  existingCompanyLogoFilename={existingCompanyLogoFilename}
-                />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <InputGroup
+                    label="Company name"
+                    placeholder="Northwind"
+                    type="text"
+                    value={recruiter.companyName}
+                    onChange={(companyName) => setRecruiter((prev) => ({ ...prev, companyName }))}
+                  />
+                  <InputGroup
+                    label="Your job title"
+                    placeholder="Head of Talent"
+                    type="text"
+                    value={recruiter.jobTitle}
+                    onChange={(jobTitle) => setRecruiter((prev) => ({ ...prev, jobTitle }))}
+                  />
+
+                  <InputGroup
+                    label="Company website"
+                    placeholder="https://northwind.com"
+                    type="url"
+                    value={recruiter.companyWebsite}
+                    onChange={(companyWebsite) =>
+                      setRecruiter((prev) => ({ ...prev, companyWebsite }))
+                    }
+                  />
+                  <SelectGroup
+                    label="Company size"
+                    placeholder="Select a size"
+                    value={recruiter.companySize}
+                    onChange={(companySize) => setRecruiter((prev) => ({ ...prev, companySize }))}
+                    options={COMPANY_SIZE_OPTIONS}
+                  />
+
+                  <InputGroup
+                    label="Industry"
+                    placeholder="Software"
+                    type="text"
+                    value={recruiter.industry}
+                    onChange={(industry) => setRecruiter((prev) => ({ ...prev, industry }))}
+                  />
+                  <FileUploadGroup
+                    label="Company logo"
+                    file={companyLogo}
+                    onChange={setCompanyLogo}
+                    accept="image/*"
+                    existingLabel={existingCompanyLogoFilename}
+                  />
+
+                  <div className="sm:col-span-2">
+                    <TextAreaGroup
+                      label="Company description"
+                      placeholder="A couple sentences about what your company does."
+                      value={recruiter.companyBio}
+                      onChange={(companyBio) => setRecruiter((prev) => ({ ...prev, companyBio }))}
+                    />
+                  </div>
+                </div>
               )}
 
               {error && <p className="text-sm text-red-400">{error}</p>}
