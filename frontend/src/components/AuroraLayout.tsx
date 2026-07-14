@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { motion } from "motion/react";
-import { Briefcase, ChevronDown, ChevronRight, Circle, Eye, EyeOff, Upload, User } from "lucide-react";
+import { Briefcase, ChevronDown, ChevronRight, Eye, EyeOff, Upload, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -40,7 +40,7 @@ export function AuroraShell({
 }) {
   return (
     <main className="font-aurora flex min-h-screen w-full bg-black p-2 selection:bg-white/30 transition-all duration-500 lg:h-screen lg:overflow-hidden lg:p-4">
-      <div className="relative hidden h-full w-[52%] flex-col items-center justify-end overflow-hidden rounded-3xl px-12 pb-32 shadow-2xl lg:flex">
+      <div className="relative hidden h-full w-[52%] flex-col items-center justify-center overflow-hidden rounded-3xl px-12 shadow-2xl lg:flex">
         <video
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay
@@ -57,15 +57,15 @@ export function AuroraShell({
           animate="visible"
           variants={CONTAINER_VARIANTS}
         >
-          <motion.div variants={ITEM_VARIANTS}>
-            <button type="button" onClick={onNavigateHome} className="flex items-center gap-2">
-              <Circle className="h-5 w-5 fill-white text-white" />
-              <span className="text-xl font-semibold tracking-tight">{brand}</span>
+          <motion.div variants={ITEM_VARIANTS} className="text-center">
+            <button
+              type="button"
+              onClick={onNavigateHome}
+              className="text-7xl font-bold tracking-tight text-white"
+            >
+              {brand}
             </button>
-          </motion.div>
-
-          <motion.div variants={ITEM_VARIANTS}>
-            <h1 className="whitespace-nowrap text-4xl font-medium tracking-tight">{heroTitle}</h1>
+            <p className="mt-5 text-xl font-medium tracking-tight text-white">{heroTitle}</p>
             <p className="mt-3 px-4 text-sm leading-relaxed text-white/60">{heroDescription}</p>
           </motion.div>
         </motion.div>
