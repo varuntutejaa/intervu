@@ -208,8 +208,9 @@ jobsRouter.get(
       `SELECT a.id AS application_id, a.status, a.applied_on,
               a.feedback_technical_rating, a.feedback_communication_rating, a.feedback_overall_rating,
               a.feedback_strengths, a.feedback_weaknesses, a.feedback_recommendation,
-              p.auth_sub, p.email, p.desired_role, p.location, p.experience,
-              p.portfolio_url, p.skills, p.bio, p.resume_filename, p.resume_data, p.avatar_url
+              p.auth_sub, p.email, p.full_name, p.phone_number, p.desired_role, p.location, p.experience,
+              p.current_status, p.technical_skills, p.soft_skills, p.linkedin_url, p.github_url,
+              p.portfolio_url, p.bio, p.resume_filename, p.resume_data, p.resume_uploaded_at, p.avatar_url
        FROM applications a
        JOIN profiles p ON p.auth_sub = a.candidate_sub
        WHERE a.job_id = $1

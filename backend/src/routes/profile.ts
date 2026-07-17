@@ -53,27 +53,38 @@ profileRouter.post(
     await pool.query(
       `INSERT INTO profiles (
          auth_sub, email, role,
-         desired_role, location, experience, portfolio_url, skills, bio, resume_filename, resume_data,
+         full_name, phone_number, desired_role, location, experience, current_status,
+         technical_skills, soft_skills, linkedin_url, github_url, portfolio_url, bio,
+         resume_filename, resume_data, resume_uploaded_at,
          company_name, job_title, company_website, company_size, industry, company_bio, company_logo_filename,
          avatar_url,
          updated_at
        ) VALUES (
          $1, $2, $3,
-         $4, $5, $6, $7, $8, $9, $10, $11,
-         $12, $13, $14, $15, $16, $17, $18,
-         $19,
+         $4, $5, $6, $7, $8, $9,
+         $10, $11, $12, $13, $14, $15,
+         $16, $17, $18,
+         $19, $20, $21, $22, $23, $24, $25,
+         $26,
          now()
        )
        ON CONFLICT (auth_sub, role) DO UPDATE SET
          email = EXCLUDED.email,
+         full_name = EXCLUDED.full_name,
+         phone_number = EXCLUDED.phone_number,
          desired_role = EXCLUDED.desired_role,
          location = EXCLUDED.location,
          experience = EXCLUDED.experience,
+         current_status = EXCLUDED.current_status,
+         technical_skills = EXCLUDED.technical_skills,
+         soft_skills = EXCLUDED.soft_skills,
+         linkedin_url = EXCLUDED.linkedin_url,
+         github_url = EXCLUDED.github_url,
          portfolio_url = EXCLUDED.portfolio_url,
-         skills = EXCLUDED.skills,
          bio = EXCLUDED.bio,
          resume_filename = EXCLUDED.resume_filename,
          resume_data = EXCLUDED.resume_data,
+         resume_uploaded_at = EXCLUDED.resume_uploaded_at,
          company_name = EXCLUDED.company_name,
          job_title = EXCLUDED.job_title,
          company_website = EXCLUDED.company_website,
@@ -87,14 +98,21 @@ profileRouter.post(
         sub,
         email,
         role,
+        f.fullName ?? null,
+        f.phoneNumber ?? null,
         f.desiredRole ?? null,
         f.location ?? null,
         f.experience ?? null,
+        f.currentStatus ?? null,
+        f.technicalSkills ?? null,
+        f.softSkills ?? null,
+        f.linkedinUrl ?? null,
+        f.githubUrl ?? null,
         f.portfolioUrl ?? null,
-        f.skills ?? null,
         f.bio ?? null,
         f.resumeFilename ?? null,
         f.resumeData ?? null,
+        f.resumeUploadedAt ?? null,
         f.companyName ?? null,
         f.jobTitle ?? null,
         f.companyWebsite ?? null,
@@ -120,7 +138,7 @@ profileRouter.delete(
     if (!user) return;
 
     await pool.query(
-      `UPDATE profiles SET resume_filename = NULL, resume_data = NULL, updated_at = now()
+      `UPDATE profiles SET resume_filename = NULL, resume_data = NULL, resume_uploaded_at = NULL, updated_at = now()
        WHERE auth_sub = $1 AND role = 'candidate'`,
       [user.sub],
     );

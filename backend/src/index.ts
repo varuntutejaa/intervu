@@ -8,9 +8,11 @@ import { asyncHandler } from "./middleware/asyncHandler.js";
 import { applicationsRouter } from "./routes/applications.js";
 import { authRouter } from "./routes/auth.js";
 import { candidatesRouter } from "./routes/candidates.js";
+import { chatRouter } from "./routes/chat.js";
 import { jobsRouter } from "./routes/jobs.js";
 import { oauthRouter } from "./routes/oauth.js";
 import { profileRouter } from "./routes/profile.js";
+import { resumeRouter } from "./routes/resume.js";
 
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 3001;
@@ -32,6 +34,8 @@ app.use("/api/profile", profileRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/candidates", candidatesRouter);
 app.use("/api/applications", applicationsRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/resume", resumeRouter);
 
 app.get(
   "/api/health",

@@ -180,3 +180,27 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS resume_data TEXT;
 -- Safe to re-run: dropping+re-adding an already-composite key is a no-op.
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_pkey;
 ALTER TABLE profiles ADD PRIMARY KEY (auth_sub, role);
+
+-- Expanded candidate profile: contact details, employment status, a
+-- proper technical/soft skill list (was a single free-text field), split
+-- LinkedIn/GitHub links (was one generic portfolio_url), and a timestamp
+-- for the resume so the UI can show "uploaded on <date>".
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS current_status TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS technical_skills TEXT[];
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS soft_skills TEXT[];
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS linkedin_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS github_url TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS resume_uploaded_at TIMESTAMPTZ;
+
+-- One-time backfill from the old comma-separated `skills` text field into
+-- the new technical_skills array, then drop it — safe to re-run since it
+-- only touches rows that haven't been migrated yet (technical_skills IS NULL).
+UPDATE profiles
+SET technical_skills = (
+  SELECT array_remove(array_agg(NULLIF(trim(s), '')), NULL)
+  FROM unnest(string_to_array(skills, ',')) AS s
+)
+WHERE skills IS NOT NULL AND technical_skills IS NULL;
+ALTER TABLE profiles DROP COLUMN IF EXISTS skills;

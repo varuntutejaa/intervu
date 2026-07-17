@@ -28,7 +28,17 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-secret-change-me";
 const JWT_EXPIRES_IN = "7d";
 
 export function signAppToken(payload: AppTokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  // Callers commonly build this payload as `{ ...getAuthUser(req), activeRole }`
+  // to refresh a session — but getAuthUser's return value is a *decoded* JWT,
+  // which carries `exp`/`iat` claims from the original sign. jsonwebtoken
+  // refuses to sign a payload that already has `exp` alongside an
+  // `expiresIn` option, so strip both here rather than requiring every call
+  // site to remember to.
+  const { exp: _exp, iat: _iat, ...clean } = payload as AppTokenPayload & {
+    exp?: number;
+    iat?: number;
+  };
+  return jwt.sign(clean, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
 export function verifyAppToken(token: string): AppTokenPayload | null {
