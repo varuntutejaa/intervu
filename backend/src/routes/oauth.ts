@@ -2,7 +2,7 @@ import { Router } from "express";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { setAuthCookie } from "../middleware/auth.js";
 import { decodeJwtPayload } from "../lib/jwt.js";
-import { resolveActiveRole } from "../lib/profiles.js";
+import { resolveActiveRole, resolveCanonicalSub } from "../lib/profiles.js";
 
 export const oauthRouter = Router();
 
@@ -73,10 +73,11 @@ oauthRouter.get(
       const claims = decodeJwtPayload<{ sub: string; email?: string; name?: string }>(
         tokenData.id_token,
       );
-      const sub = `google:${claims.sub}`;
+      const email = claims.email ?? "";
+      const sub = await resolveCanonicalSub(email, `google:${claims.sub}`);
       const role = roleFromState(req.query.state);
 
-      const user = { sub, email: claims.email ?? "", name: claims.name };
+      const user = { sub, email, name: claims.name };
       // Trust the role picked on the login screen even if this account has
       // no profile for it yet — the frontend sends them to profile setup
       // instead of home in that case, same as switch-role does.
@@ -160,7 +161,7 @@ oauthRouter.get(
         }
       }
 
-      const sub = `github:${user.id}`;
+      const sub = await resolveCanonicalSub(email, `github:${user.id}`);
       const role = roleFromState(req.query.state);
 
       const authUser = {

@@ -16,6 +16,10 @@ export const jobFormSchema = z.object({
   description: z.string(),
   skills: z.string(),
   applicationDeadline: z.string(),
+  travel: z.string(),
+  discipline: z.string(),
+  responsibilities: z.string(),
+  qualifications: z.string(),
 });
 export type JobFormValues = z.infer<typeof jobFormSchema>;
 
@@ -31,6 +35,10 @@ export const EMPTY_JOB_FORM_VALUES: JobFormValues = {
   description: "",
   skills: "",
   applicationDeadline: "",
+  travel: "",
+  discipline: "",
+  responsibilities: "",
+  qualifications: "",
 };
 
 // Shared by PostJobPage (create) and recruiter-dashboard's EditJobModal
@@ -51,5 +59,9 @@ export function jobFormValuesToPayload(values: JobFormValues) {
       .map((skill) => skill.trim())
       .filter(Boolean),
     applicationDeadline: values.applicationDeadline || null,
+    travel: values.travel || null,
+    discipline: values.discipline || null,
+    responsibilities: values.responsibilities || null,
+    qualifications: values.qualifications || null,
   };
 }

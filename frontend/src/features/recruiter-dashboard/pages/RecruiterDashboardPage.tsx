@@ -2,17 +2,11 @@ import { useState } from "react";
 import { Briefcase, Pencil, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { NavBar } from "../../../components/chrome/NavBar";
+import { formatSalary } from "../../../lib/format";
 import { useSessionQuery } from "../../auth/api";
 import { useMyJobsQuery, useJobStatsQuery, useUpdateJobMutation, type Job } from "../../jobs/api";
 import { ApplicantsModal } from "../components/ApplicantsModal";
 import { EditJobModal } from "../components/EditJobModal";
-
-function formatSalary(min: number | null, max: number | null) {
-  if (!min && !max) return null;
-  const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
-  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
-  return fmt((min ?? max) as number);
-}
 
 export default function RecruiterDashboardPage() {
   const { data: session } = useSessionQuery();

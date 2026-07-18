@@ -1,23 +1,17 @@
 import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { NavBar } from "../../../components/chrome/NavBar";
+import { formatSalary } from "../../../lib/format";
 import { useSessionQuery } from "../../auth/api";
 import { useAppliedJobIdsQuery, useApplyToJobMutation } from "../../applications/api";
-import { useJobsQuery, type Job } from "../api";
-import { JobDetailModal } from "../components/JobDetailModal";
+import { useJobsQuery } from "../api";
 
 const JOB_TYPE_OPTIONS = ["Full-time", "Part-time", "Internship", "Contract"];
 const WORK_MODE_OPTIONS = ["Onsite", "Remote", "Hybrid"];
 const EXPERIENCE_OPTIONS = ["Fresher", "1-3 Years", "3-5 Years", "5-10 Years"];
 const FILTER_SELECT_CLASS =
   "h-10 rounded-xl border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20";
-
-function formatSalary(min: number | null, max: number | null) {
-  if (!min && !max) return null;
-  const fmt = (n: number) => `$${Math.round(n / 1000)}k`;
-  if (min && max) return `${fmt(min)} – ${fmt(max)}`;
-  return fmt((min ?? max) as number);
-}
 
 function formatDeadline(deadline: string | null) {
   if (!deadline) return null;
@@ -29,11 +23,10 @@ function formatDeadline(deadline: string | null) {
 }
 
 export default function JobsPage() {
+  const navigate = useNavigate();
   const { data: session } = useSessionQuery();
   const role = session?.role ?? null;
-  const user = session?.user ?? null;
 
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [jobType, setJobType] = useState("");
@@ -65,7 +58,7 @@ export default function JobsPage() {
         <NavBar />
       </div>
 
-      <div className="mx-auto max-w-5xl px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
+      <div className="w-full px-6 pb-10 pt-28 sm:px-10 lg:px-16 xl:px-24">
         <h1 className="font-fustat text-3xl font-bold text-white">Jobs for you</h1>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -128,7 +121,7 @@ export default function JobsPage() {
           <p className="mt-6 text-sm text-white/40">No jobs match your search/filters.</p>
         )}
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 divide-y divide-white/10 border-t border-white/10">
           {jobs.map((job) => {
             const salary = formatSalary(job.salary_min, job.salary_max);
             const deadline = formatDeadline(job.application_deadline);
@@ -136,24 +129,25 @@ export default function JobsPage() {
             return (
               <div
                 key={job.id}
-                className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/jobs/${job.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") navigate(`/jobs/${job.id}`);
+                }}
+                className="flex cursor-pointer flex-col gap-3 py-5 transition-colors hover:bg-white/[0.03] sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-baseline gap-x-2">
-                    <p className="font-grotesk text-sm font-semibold text-white">{job.title}</p>
+                    <p className="font-grotesk text-base font-semibold text-white">{job.title}</p>
                     {job.job_code && <span className="text-xs text-white/30">#{job.job_code}</span>}
                   </div>
                   <p className="mt-1 text-xs text-white/50">
                     {job.company} · {job.location}
                   </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/50">
                     {[job.job_type, job.work_mode, job.experience].filter(Boolean).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/60"
-                      >
-                        {tag}
-                      </span>
+                      <span key={tag}>{tag}</span>
                     ))}
                   </div>
                   {job.description && (
@@ -164,38 +158,31 @@ export default function JobsPage() {
                   )}
                   {deadline && <p className="mt-1 text-xs text-white/30">{deadline}</p>}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   {salary && <span className="text-xs font-medium text-white/60">{salary}</span>}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedJob(job)}
-                    className="shrink-0 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/80"
-                  >
-                    {appliedJobIds.has(job.id) ? "Applied" : "Apply"}
-                  </button>
+                  {role === "candidate" && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleApply(job.id);
+                      }}
+                      disabled={appliedJobIds.has(job.id) || (applyMutation.isPending && applyMutation.variables === job.id)}
+                      className="shrink-0 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {appliedJobIds.has(job.id)
+                        ? "Applied"
+                        : applyMutation.isPending && applyMutation.variables === job.id
+                          ? "Applying…"
+                          : "Apply"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {selectedJob && (
-        <JobDetailModal
-          job={selectedJob}
-          onClose={() => setSelectedJob(null)}
-          canApply={role === "candidate"}
-          isLoggedIn={!!user}
-          hasApplied={appliedJobIds.has(selectedJob.id)}
-          isApplying={applyMutation.isPending && applyMutation.variables === selectedJob.id}
-          applyError={
-            applyMutation.isError && applyMutation.variables === selectedJob.id
-              ? applyMutation.error.message
-              : undefined
-          }
-          onApply={() => handleApply(selectedJob.id)}
-        />
-      )}
     </div>
   );
 }

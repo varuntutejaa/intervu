@@ -6,6 +6,7 @@ import SignupPage from "../features/auth/pages/SignupPage";
 import ViewCandidatesPage from "../features/candidates/pages/ViewCandidatesPage";
 import LandingPage from "../features/landing/pages/LandingPage";
 import ApplicationsPage from "../features/applications/pages/ApplicationsPage";
+import JobDetailPage from "../features/jobs/pages/JobDetailPage";
 import JobsPage from "../features/jobs/pages/JobsPage";
 import PostJobPage from "../features/jobs/pages/PostJobPage";
 import ProfilePage from "../features/profile/pages/ProfilePage";
@@ -66,6 +67,7 @@ function HomeRoute() {
 export const router = createBrowserRouter([
   { path: "/", element: <HomeRoute /> },
   { path: "/jobs", element: <JobsPage /> },
+  { path: "/jobs/:id", element: <JobDetailPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },

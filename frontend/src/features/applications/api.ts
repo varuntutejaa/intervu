@@ -7,7 +7,8 @@ export type ApplicationStatus =
   | "Technical Round"
   | "HR Round"
   | "Offer Received"
-  | "Rejected";
+  | "Rejected"
+  | "Withdrawn";
 
 export const APPLICATION_STATUSES: ApplicationStatus[] = [
   "Applied",
@@ -16,6 +17,7 @@ export const APPLICATION_STATUSES: ApplicationStatus[] = [
   "HR Round",
   "Offer Received",
   "Rejected",
+  "Withdrawn",
 ];
 
 export type Application = {
@@ -94,6 +96,15 @@ export function useUpdateApplicationMutation() {
   return useMutation({
     mutationFn: ({ id, status }: { id: number; status: ApplicationStatus }) =>
       apiJson(`/api/applications/${id}`, "PATCH", { status }, "Couldn't update status. Try again."),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["applications"] }),
+  });
+}
+
+export function useWithdrawApplicationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiJson(`/api/applications/${id}/withdraw`, "PATCH", undefined, "Couldn't withdraw. Try again."),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["applications"] }),
   });
 }

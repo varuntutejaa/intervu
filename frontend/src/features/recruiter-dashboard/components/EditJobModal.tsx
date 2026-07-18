@@ -17,6 +17,24 @@ const JOB_EXPERIENCE_OPTIONS = [
   { value: "5-10 Years", label: "5–10 Years" },
 ];
 
+const TRAVEL_OPTIONS = ["None", "Up to 25%", "25-50%", "50-75%", "75-100%"].map((v) => ({
+  value: v,
+  label: v,
+}));
+
+const DISCIPLINE_OPTIONS = [
+  "Engineering",
+  "Product",
+  "Design",
+  "Sales",
+  "Marketing",
+  "Operations",
+  "Customer Support",
+  "Finance",
+  "Human Resources",
+  "Other",
+].map((v) => ({ value: v, label: v }));
+
 export function EditJobModal({
   job,
   onClose,
@@ -46,6 +64,10 @@ export function EditJobModal({
       description: job.description ?? "",
       skills: job.skills.join(", "),
       applicationDeadline: job.application_deadline ? job.application_deadline.slice(0, 10) : "",
+      travel: job.travel ?? "",
+      discipline: job.discipline ?? "",
+      responsibilities: job.responsibilities ?? "",
+      qualifications: job.qualifications ?? "",
     },
   });
 
@@ -169,7 +191,7 @@ export function EditJobModal({
               control={control}
               render={({ field }) => (
                 <InputGroup
-                  label="Salary min"
+                  label="Salary min (₹ per annum)"
                   placeholder=""
                   type="number"
                   value={field.value}
@@ -183,7 +205,7 @@ export function EditJobModal({
               control={control}
               render={({ field }) => (
                 <InputGroup
-                  label="Salary max"
+                  label="Salary max (₹ per annum)"
                   placeholder=""
                   type="number"
                   value={field.value}
@@ -221,20 +243,77 @@ export function EditJobModal({
                 />
               )}
             />
+
+            <Controller
+              name="discipline"
+              control={control}
+              render={({ field }) => (
+                <SelectGroup
+                  label="Discipline"
+                  placeholder="Select a discipline"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={DISCIPLINE_OPTIONS}
+                  error={errors.discipline?.message}
+                />
+              )}
+            />
+            <Controller
+              name="travel"
+              control={control}
+              render={({ field }) => (
+                <SelectGroup
+                  label="Travel"
+                  placeholder="Select travel requirement"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={TRAVEL_OPTIONS}
+                  error={errors.travel?.message}
+                />
+              )}
+            />
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
             <Controller
               name="description"
               control={control}
               render={({ field }) => (
                 <TextAreaGroup
-                  label="Job description"
+                  label="Job description / overview"
                   placeholder=""
                   value={field.value}
                   onChange={field.onChange}
-                  rows={5}
+                  rows={4}
                   error={errors.description?.message}
+                />
+              )}
+            />
+            <Controller
+              name="responsibilities"
+              control={control}
+              render={({ field }) => (
+                <TextAreaGroup
+                  label="Responsibilities"
+                  placeholder=""
+                  value={field.value}
+                  onChange={field.onChange}
+                  rows={4}
+                  error={errors.responsibilities?.message}
+                />
+              )}
+            />
+            <Controller
+              name="qualifications"
+              control={control}
+              render={({ field }) => (
+                <TextAreaGroup
+                  label="Qualifications"
+                  placeholder=""
+                  value={field.value}
+                  onChange={field.onChange}
+                  rows={4}
+                  error={errors.qualifications?.message}
                 />
               )}
             />

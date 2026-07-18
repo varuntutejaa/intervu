@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { PDFParse } from "pdf-parse";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { getAuthUser } from "../middleware/auth.js";
 import { getGroqClient } from "../lib/groq.js";
+import { extractPdfText } from "../lib/pdfText.js";
 import { ragConfig } from "../rag/config.js";
 
 export const resumeRouter = Router();
@@ -74,17 +74,7 @@ resumeRouter.post(
       return;
     }
 
-    const base64 = resumeData.slice(resumeData.indexOf(",") + 1);
-    const buffer = Buffer.from(base64, "base64");
-
-    const parser = new PDFParse({ data: buffer });
-    let text: string;
-    try {
-      const result = await parser.getText();
-      text = result.text.trim();
-    } finally {
-      await parser.destroy();
-    }
+    const text = await extractPdfText(resumeData);
 
     if (!text) {
       res.status(422).json({ error: "Couldn't read any text from that file." });

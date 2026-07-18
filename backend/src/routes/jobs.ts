@@ -7,7 +7,7 @@ import { APPLICATION_STATUSES, RECOMMENDATIONS } from "../lib/applicationStatus.
 export const jobsRouter = Router();
 
 const JOB_FIELDS =
-  "id, title, company, location, job_type, work_mode, experience, salary_min, salary_max, description, skills, application_deadline, job_code, status";
+  "id, title, company, location, job_type, work_mode, experience, salary_min, salary_max, description, skills, application_deadline, job_code, status, created_at, travel, discipline, responsibilities, qualifications";
 
 // Random 6-digit reference code for a new posting, retried on the rare
 // collision instead of relying on a DB-level unique constraint.
@@ -179,6 +179,29 @@ jobsRouter.get(
       topCompanies: topCompanies.rows,
       interviewCompletionRate,
     });
+  }),
+);
+
+// Single-job lookup for the full-page job detail view (public, like GET /
+// above — a candidate doesn't need to be logged in to read the posting).
+// Not status-filtered, unlike the list endpoint: a direct link to a job
+// should still resolve after it's closed (e.g. a recruiter revisiting their
+// own posting), the frontend decides what to show based on job.status.
+jobsRouter.get(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const jobId = Number(req.params.id);
+    if (!Number.isInteger(jobId)) {
+      res.status(400).json({ error: "Invalid job id." });
+      return;
+    }
+
+    const result = await pool.query(`SELECT ${JOB_FIELDS} FROM jobs WHERE id = $1`, [jobId]);
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "Job not found." });
+      return;
+    }
+    res.json(result.rows[0]);
   }),
 );
 
@@ -358,6 +381,10 @@ jobsRouter.patch(
       skills,
       applicationDeadline,
       status,
+      travel,
+      discipline,
+      responsibilities,
+      qualifications,
     } = req.body ?? {};
 
     if (status !== undefined && !JOB_STATUSES.includes(status)) {
@@ -378,8 +405,12 @@ jobsRouter.patch(
          description = COALESCE($9, description),
          skills = COALESCE($10, skills),
          application_deadline = COALESCE($11, application_deadline),
-         status = COALESCE($12, status)
-       WHERE id = $13
+         status = COALESCE($12, status),
+         travel = COALESCE($13, travel),
+         discipline = COALESCE($14, discipline),
+         responsibilities = COALESCE($15, responsibilities),
+         qualifications = COALESCE($16, qualifications)
+       WHERE id = $17
        RETURNING ${JOB_FIELDS}`,
       [
         title ?? null,
@@ -394,6 +425,10 @@ jobsRouter.patch(
         Array.isArray(skills) ? skills : null,
         applicationDeadline ?? null,
         status ?? null,
+        travel ?? null,
+        discipline ?? null,
+        responsibilities ?? null,
+        qualifications ?? null,
         jobId,
       ],
     );
@@ -419,6 +454,10 @@ jobsRouter.post(
       description,
       skills,
       applicationDeadline,
+      travel,
+      discipline,
+      responsibilities,
+      qualifications,
     } = req.body ?? {};
     if (!title || !company || !location || !jobType || !workMode || !experience) {
       res.status(400).json({
@@ -433,9 +472,9 @@ jobsRouter.post(
       `INSERT INTO jobs (
          title, company, location, job_type, work_mode, experience,
          salary_min, salary_max, description, skills, application_deadline,
-         job_code, posted_by
+         job_code, posted_by, travel, discipline, responsibilities, qualifications
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING ${JOB_FIELDS}`,
       [
         title,
@@ -451,6 +490,10 @@ jobsRouter.post(
         applicationDeadline ?? null,
         jobCode,
         user.sub,
+        travel ?? null,
+        discipline ?? null,
+        responsibilities ?? null,
+        qualifications ?? null,
       ],
     );
     res.json(result.rows[0]);

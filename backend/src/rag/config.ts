@@ -28,15 +28,23 @@ export const ragConfig = {
   dataDir: process.env.RAG_DATA_DIR ?? path.join(backendRoot, "data", "rag"),
   chunkStrategy: resolveChunkStrategy(),
   topK: process.env.RAG_TOP_K ? Number(process.env.RAG_TOP_K) : 5,
+  // 0.35 is calibrated for all-MiniLM-L6-v2's score distribution specifically
+  // (empirically: unrelated questions land ~0.02-0.08, full-sentence
+  // on-topic questions ~0.6-0.75, but short/terse on-topic queries like "ats
+  // score" land as low as ~0.44-0.46 — see EVALUATION.md). 0.35 sits well
+  // below that terse-query floor while staying well above the off-topic
+  // ceiling. A different EMBEDDING_MODEL will very likely need a different
+  // threshold.
   similarityThreshold: process.env.RAG_SIMILARITY_THRESHOLD
     ? Number(process.env.RAG_SIMILARITY_THRESHOLD)
-    : 0.75,
+    : 0.35,
   // Chat: Groq (OpenAI-compatible API, no embeddings support — see lib/groq.ts).
   chatModel: process.env.GROQ_CHAT_MODEL ?? "llama-3.3-70b-versatile",
-  // Embeddings: local Ollama (also OpenAI-compatible), so ingest/query never
-  // leaves the machine and never costs anything.
-  ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
-  embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL ?? "nomic-embed-text",
+  // Embeddings: a local sentence-transformer running in-process via
+  // @huggingface/transformers (ONNX/WASM) — no external service, no API
+  // key, nothing to install beyond `npm install`. Downloads once on first
+  // use and is cached locally after that.
+  embeddingModel: process.env.EMBEDDING_MODEL ?? "Xenova/all-MiniLM-L6-v2",
 };
 
 export function chunkStrategyDir(strategy: ChunkStrategyKey = ragConfig.chunkStrategy): string {

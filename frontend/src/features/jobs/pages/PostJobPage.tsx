@@ -27,6 +27,24 @@ const EXPERIENCE_OPTIONS = [
   { value: "5-10 Years", label: "5–10 Years" },
 ];
 
+const TRAVEL_OPTIONS = ["None", "Up to 25%", "25-50%", "50-75%", "75-100%"].map((v) => ({
+  value: v,
+  label: v,
+}));
+
+const DISCIPLINE_OPTIONS = [
+  "Engineering",
+  "Product",
+  "Design",
+  "Sales",
+  "Marketing",
+  "Operations",
+  "Customer Support",
+  "Finance",
+  "Human Resources",
+  "Other",
+].map((v) => ({ value: v, label: v }));
+
 export default function PostJobPage() {
   const profileQuery = useProfileQuery();
   const createJobMutation = useCreateJobMutation();
@@ -166,8 +184,8 @@ export default function PostJobPage() {
               control={control}
               render={({ field }) => (
                 <InputGroup
-                  label="Salary min"
-                  placeholder="130000"
+                  label="Salary min (₹ per annum)"
+                  placeholder="600000"
                   type="number"
                   value={field.value}
                   onChange={field.onChange}
@@ -180,8 +198,8 @@ export default function PostJobPage() {
               control={control}
               render={({ field }) => (
                 <InputGroup
-                  label="Salary max"
-                  placeholder="160000"
+                  label="Salary max (₹ per annum)"
+                  placeholder="900000"
                   type="number"
                   value={field.value}
                   onChange={field.onChange}
@@ -218,6 +236,35 @@ export default function PostJobPage() {
                 />
               )}
             />
+
+            <Controller
+              name="discipline"
+              control={control}
+              render={({ field }) => (
+                <SelectGroup
+                  label="Discipline"
+                  placeholder="Select a discipline"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={DISCIPLINE_OPTIONS}
+                  error={errors.discipline?.message}
+                />
+              )}
+            />
+            <Controller
+              name="travel"
+              control={control}
+              render={({ field }) => (
+                <SelectGroup
+                  label="Travel"
+                  placeholder="Select travel requirement"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={TRAVEL_OPTIONS}
+                  error={errors.travel?.message}
+                />
+              )}
+            />
           </div>
 
           <Controller
@@ -225,12 +272,42 @@ export default function PostJobPage() {
             control={control}
             render={({ field }) => (
               <TextAreaGroup
-                label="Job description"
-                placeholder="Responsibilities, requirements, and anything else candidates should know."
+                label="Job description / overview"
+                placeholder="A brief overview of the role."
                 value={field.value}
                 onChange={field.onChange}
-                rows={5}
+                rows={4}
                 error={errors.description?.message}
+              />
+            )}
+          />
+
+          <Controller
+            name="responsibilities"
+            control={control}
+            render={({ field }) => (
+              <TextAreaGroup
+                label="Responsibilities"
+                placeholder="What this person will actually do, day to day."
+                value={field.value}
+                onChange={field.onChange}
+                rows={4}
+                error={errors.responsibilities?.message}
+              />
+            )}
+          />
+
+          <Controller
+            name="qualifications"
+            control={control}
+            render={({ field }) => (
+              <TextAreaGroup
+                label="Qualifications"
+                placeholder="What a candidate needs to bring to the role."
+                value={field.value}
+                onChange={field.onChange}
+                rows={4}
+                error={errors.qualifications?.message}
               />
             )}
           />

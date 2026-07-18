@@ -6,6 +6,7 @@ import {
   useApplicationsQuery,
   useDeleteApplicationMutation,
   useUpdateApplicationMutation,
+  useWithdrawApplicationMutation,
   type Application,
   type ApplicationStatus,
 } from "../api";
@@ -25,6 +26,7 @@ const STATUS_STYLES: Record<ApplicationStatus, string> = {
   "HR Round": "bg-amber-400/20 text-amber-300",
   "Offer Received": "bg-emerald-400/20 text-emerald-300",
   Rejected: "bg-red-400/20 text-red-300",
+  Withdrawn: "bg-white/10 text-white/40",
 };
 
 const SELECT_CLASS =
@@ -45,6 +47,7 @@ export default function ApplicationsPage() {
   const applicationsQuery = useApplicationsQuery({ q: search, status: statusFilter, sort });
   const updateMutation = useUpdateApplicationMutation();
   const deleteMutation = useDeleteApplicationMutation();
+  const withdrawMutation = useWithdrawApplicationMutation();
 
   const applications = applicationsQuery.data ?? [];
 
@@ -54,6 +57,12 @@ export default function ApplicationsPage() {
 
   const handleDelete = (app: Application) => {
     deleteMutation.mutate(app.id);
+  };
+
+  const handleWithdraw = (app: Application) => {
+    if (window.confirm("Withdraw this application? This can't be undone.")) {
+      withdrawMutation.mutate(app.id);
+    }
   };
 
   return (
@@ -132,7 +141,16 @@ export default function ApplicationsPage() {
 
             const isUpdating = updateMutation.isPending && updateMutation.variables?.id === app.id;
             const isDeleting = deleteMutation.isPending && deleteMutation.variables === app.id;
+            const isWithdrawing = withdrawMutation.isPending && withdrawMutation.variables === app.id;
             const updateFailed = updateMutation.isError && updateMutation.variables?.id === app.id;
+            const withdrawFailed = withdrawMutation.isError && withdrawMutation.variables === app.id;
+
+            // Applications to a real posting (job_id set) are owned by the
+            // recruiter's pipeline — the candidate can only see status and
+            // withdraw, never set an arbitrary status or delete the row.
+            // Manually-logged, off-platform entries (job_id null) have no
+            // recruiter counterpart, so those stay fully self-managed.
+            const isPlatformApplication = app.job_id !== null;
 
             return (
               <div key={app.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -146,30 +164,55 @@ export default function ApplicationsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <select
-                      value={app.status}
-                      disabled={isUpdating}
-                      onChange={(e) => handleStatusChange(app, e.target.value as ApplicationStatus)}
-                      className={`w-fit rounded-full border-none px-3 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 ${STATUS_STYLES[app.status]}`}
-                    >
-                      {APPLICATION_STATUSES.map((s) => (
-                        <option key={s} value={s} className="bg-[#1c1c1e] text-white">
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(app)}
-                      disabled={isDeleting}
-                      aria-label="Delete application"
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/40 transition-colors hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isPlatformApplication ? (
+                      <>
+                        <span
+                          className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[app.status]}`}
+                        >
+                          {app.status}
+                        </span>
+                        {app.status !== "Withdrawn" && (
+                          <button
+                            type="button"
+                            onClick={() => handleWithdraw(app)}
+                            disabled={isWithdrawing}
+                            className="rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-white/50 transition-colors hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                          >
+                            {isWithdrawing ? "Withdrawing…" : "Withdraw"}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <select
+                          value={app.status}
+                          disabled={isUpdating}
+                          onChange={(e) => handleStatusChange(app, e.target.value as ApplicationStatus)}
+                          className={`w-fit rounded-full border-none px-3 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 ${STATUS_STYLES[app.status]}`}
+                        >
+                          {APPLICATION_STATUSES.map((s) => (
+                            <option key={s} value={s} className="bg-[#1c1c1e] text-white">
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(app)}
+                          disabled={isDeleting}
+                          aria-label="Delete application"
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/40 transition-colors hover:bg-white/10 hover:text-red-400 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
+                {withdrawFailed && (
+                  <p className="mt-2 text-xs text-red-400">{withdrawMutation.error.message}</p>
+                )}
                 {updateFailed && (
                   <p className="mt-2 text-xs text-red-400">{updateMutation.error.message}</p>
                 )}

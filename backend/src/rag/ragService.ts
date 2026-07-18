@@ -17,7 +17,10 @@ function dedupeCitations(chunks: RetrievedChunk[]): Citation[] {
   return citations;
 }
 
-export async function answerQuestion(question: string): Promise<ChatAnswer> {
+export async function answerQuestion(
+  question: string,
+  resumeText?: string,
+): Promise<ChatAnswer> {
   const { chunks, confident } = await retrieve(question);
 
   // Below-threshold similarity means the knowledge base likely has no good
@@ -26,7 +29,7 @@ export async function answerQuestion(question: string): Promise<ChatAnswer> {
     return { answer: NO_CONTEXT_ANSWER, citations: [] };
   }
 
-  const answer = await generateGroundedAnswer(question, chunks);
+  const answer = await generateGroundedAnswer(question, chunks, resumeText);
   if (answer === NO_CONTEXT_ANSWER) {
     return { answer: NO_CONTEXT_ANSWER, citations: [] };
   }

@@ -3,6 +3,7 @@ import type { Ref } from "react";
 import { Briefcase, ClipboardList, FileText, MessageSquare, Sparkles, Mic, type LucideIcon } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { NavBar } from "../../../components/chrome/NavBar";
+import { readFileAsDataUrl } from "../../../lib/files";
 import { useChatMutation } from "../api";
 import { ChatInput } from "../components/ChatInput";
 import { ChatPanel, type ChatTurn } from "../components/ChatPanel";
@@ -59,7 +60,12 @@ export default function LandingPage() {
     setTurns((prev) => [...prev, { kind: "user", text, resume }]);
     setActivePanel("chat");
     try {
-      const result = await chatMutation.mutateAsync(text);
+      const resumeData = resume ? await readFileAsDataUrl(resume) : undefined;
+      // A file with no typed question is a valid submission (the UI allows
+      // attach-only) — give the backend a real question to answer instead
+      // of sending an empty one, which it correctly rejects.
+      const question = text || (resume ? "Please review my resume and share feedback." : "");
+      const result = await chatMutation.mutateAsync({ question, resumeData });
       setTurns((prev) => [...prev, { kind: "assistant", text: result.answer, citations: result.citations }]);
     } catch (err) {
       setTurns((prev) => [

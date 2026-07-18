@@ -11,6 +11,10 @@ const APPLICATION_STATUSES = [
   "HR Round",
   "Offer Received",
   "Rejected",
+  // A candidate can withdraw on their own (applications.ts's PATCH
+  // /:id/withdraw) — included here so the dropdown still shows the real
+  // current status instead of silently mismatching it.
+  "Withdrawn",
 ];
 const RECOMMENDATION_OPTIONS = ["Strong Hire", "Hire", "No Hire", "Strong No Hire"];
 

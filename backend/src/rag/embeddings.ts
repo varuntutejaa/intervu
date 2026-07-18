@@ -1,43 +1,31 @@
-import OpenAI from "openai";
+import { pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
 import { ragConfig } from "./config.js";
 
-let client: OpenAI | null = null;
+// Runs entirely in-process (ONNX/WASM) — no external service, no API key,
+// no install beyond `npm install`. The model downloads once (cached under
+// node_modules/.cache) on first use, so ingest and the chat route both share
+// this single loaded pipeline instead of re-loading it per call.
+let extractorPromise: Promise<FeatureExtractionPipeline> | null = null;
 
-// Ollama exposes an OpenAI-compatible /v1/embeddings endpoint, so the
-// official openai SDK works unmodified against it, pointed at localhost
-// instead of api.openai.com — it doesn't check the API key, but the SDK
-// requires a non-empty string to construct.
-function getClient(): OpenAI {
-  if (!client) {
-    client = new OpenAI({ apiKey: "ollama", baseURL: `${ragConfig.ollamaBaseUrl}/v1` });
+function getExtractor(): Promise<FeatureExtractionPipeline> {
+  if (!extractorPromise) {
+    extractorPromise = pipeline("feature-extraction", ragConfig.embeddingModel);
   }
-  return client;
+  return extractorPromise;
 }
 
-// Smaller than the old OpenAI-hosted batch size — this now runs on local
-// CPU/GPU, where a single huge batch is slower and more failure-prone than
-// several smaller ones.
-const BATCH_SIZE = 20;
-
-// L2-normalizing lets a FAISS inner-product index double as cosine similarity search.
-function normalize(vector: number[]): number[] {
-  const norm = Math.sqrt(vector.reduce((sum, v) => sum + v * v, 0));
-  return norm === 0 ? vector : vector.map((v) => v / norm);
-}
+const BATCH_SIZE = 32;
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
-  const openai = getClient();
+  const extractor = await getExtractor();
   const vectors: number[][] = [];
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
-    const response = await openai.embeddings.create({
-      model: ragConfig.embeddingModel,
-      input: batch,
-    });
-    for (const item of response.data) {
-      vectors.push(normalize(item.embedding));
-    }
+    // mean-pool token embeddings into one vector per input, L2-normalized so
+    // a FAISS inner-product index doubles as cosine similarity search.
+    const output = await extractor(batch, { pooling: "mean", normalize: true });
+    vectors.push(...(output.tolist() as number[][]));
   }
 
   return vectors;

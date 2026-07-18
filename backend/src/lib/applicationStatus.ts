@@ -8,6 +8,7 @@ export const APPLICATION_STATUSES = [
   "HR Round",
   "Offer Received",
   "Rejected",
+  "Withdrawn",
 ] as const;
 
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];

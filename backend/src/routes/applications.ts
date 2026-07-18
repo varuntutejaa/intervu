@@ -108,9 +108,13 @@ applicationsRouter.post(
   }),
 );
 
-// Candidates manage their own applications directly — a recruiter's
-// ability to move status forward (jobs.ts) only exists for applications to
-// their own postings, but the candidate always owns the row.
+// Candidates can freely edit/re-status applications they're just logging
+// for their own tracking (job_id NULL — applied somewhere off-platform, no
+// recruiter involved at all). For a real posting on this platform (job_id
+// set), the recruiter owns status changes (jobs.ts's PATCH
+// /:id/applicants/:applicationId) — the candidate's only action on those is
+// to withdraw (see PATCH /:id/withdraw below), not set an arbitrary status
+// or edit the company/position/date, which come from the job itself anyway.
 applicationsRouter.patch(
   "/:id",
   asyncHandler(async (req, res) => {
@@ -123,30 +127,74 @@ applicationsRouter.patch(
       return;
     }
 
+    const existing = await pool.query(
+      "SELECT job_id FROM applications WHERE id = $1 AND candidate_sub = $2",
+      [id, user.sub],
+    );
+    if (existing.rowCount === 0) {
+      res.status(404).json({ error: "Application not found." });
+      return;
+    }
+    if (existing.rows[0].job_id !== null) {
+      res.status(403).json({
+        error: "This application is to a real posting — only the recruiter can change its status. You can withdraw it instead.",
+      });
+      return;
+    }
+
     const { status, company, position, appliedOn } = req.body ?? {};
     if (status !== undefined && !(APPLICATION_STATUSES as readonly string[]).includes(status)) {
       res.status(400).json({ error: "Invalid status." });
       return;
     }
 
-    const result = await pool.query(
+    await pool.query(
       `UPDATE applications SET
          status = COALESCE($1, status),
          company = COALESCE($2, company),
          position_title = COALESCE($3, position_title),
          applied_on = COALESCE($4, applied_on)
-       WHERE id = $5 AND candidate_sub = $6
-       RETURNING id`,
+       WHERE id = $5 AND candidate_sub = $6`,
       [status ?? null, company ?? null, position ?? null, appliedOn ?? null, id, user.sub],
+    );
+    res.json({ status: "updated" });
+  }),
+);
+
+// The only status change a candidate can make on an application to a real
+// posting — preserves the row (and any recruiter feedback already left on
+// it) instead of deleting it, so the recruiter can still see the candidate
+// withdrew rather than the application just vanishing.
+applicationsRouter.patch(
+  "/:id/withdraw",
+  asyncHandler(async (req, res) => {
+    const user = await requireRole(req, res, "candidate");
+    if (!user) return;
+
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Invalid id." });
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE applications SET status = 'Withdrawn'
+       WHERE id = $1 AND candidate_sub = $2
+       RETURNING id`,
+      [id, user.sub],
     );
     if (result.rowCount === 0) {
       res.status(404).json({ error: "Application not found." });
       return;
     }
-    res.json({ status: "updated" });
+    res.json({ status: "withdrawn" });
   }),
 );
 
+// Deleting is only for a candidate's own off-platform tracking entries
+// (job_id NULL) — an application to a real posting can only be withdrawn
+// (above), never deleted, so the recruiter's view of it is never silently
+// pulled out from under them.
 applicationsRouter.delete(
   "/:id",
   asyncHandler(async (req, res) => {
@@ -159,14 +207,20 @@ applicationsRouter.delete(
       return;
     }
 
-    const result = await pool.query(
-      "DELETE FROM applications WHERE id = $1 AND candidate_sub = $2",
+    const existing = await pool.query(
+      "SELECT job_id FROM applications WHERE id = $1 AND candidate_sub = $2",
       [id, user.sub],
     );
-    if (result.rowCount === 0) {
+    if (existing.rowCount === 0) {
       res.status(404).json({ error: "Application not found." });
       return;
     }
+    if (existing.rows[0].job_id !== null) {
+      res.status(403).json({ error: "Applications to a real posting can only be withdrawn, not deleted." });
+      return;
+    }
+
+    await pool.query("DELETE FROM applications WHERE id = $1 AND candidate_sub = $2", [id, user.sub]);
     res.json({ status: "deleted" });
   }),
 );

@@ -16,6 +16,11 @@ export type Job = {
   application_deadline: string | null;
   job_code: string | null;
   status?: string;
+  created_at: string;
+  travel: string | null;
+  discipline: string | null;
+  responsibilities: string | null;
+  qualifications: string | null;
 };
 
 export type JobStats = {
@@ -86,6 +91,13 @@ export function useJobsQuery(filters: JobFilters) {
   return useQuery({
     queryKey: ["jobs", "list", filters],
     queryFn: () => apiFetch<Job[]>(`/api/jobs?${buildJobsQueryString(filters)}`),
+  });
+}
+
+export function useJobQuery(id: number) {
+  return useQuery({
+    queryKey: ["jobs", "detail", id],
+    queryFn: () => apiFetch<Job>(`/api/jobs/${id}`),
   });
 }
 

@@ -35,6 +35,21 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_deadline DATE;
 -- filtered or sorted on.
 ALTER TABLE jobs DROP COLUMN IF EXISTS salary;
 
+-- "Date posted" on the job detail page. Backfills to now() for existing rows
+-- rather than NULL since every job was posted at some point.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+-- How much travel the role expects (e.g. "None", "Up to 25%") — free text,
+-- constrained to a fixed option list client-side, same convention as
+-- job_type/work_mode/experience above.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS travel TEXT;
+-- Job family/category (e.g. "Engineering", "Sales") shown alongside
+-- employment type on the job detail page.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS discipline TEXT;
+-- Longer-form sections shown on the job detail page, separate from the
+-- free-form `description` overview.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS responsibilities TEXT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS qualifications TEXT;
+
 DO $$ BEGIN
   CREATE TYPE application_status AS ENUM ('Applied', 'Interviewing', 'Offer', 'Rejected');
 EXCEPTION
@@ -101,6 +116,11 @@ ALTER TABLE applications ALTER COLUMN status TYPE application_status_v2 USING (
 ALTER TABLE applications ALTER COLUMN status SET DEFAULT 'Applied';
 DROP TYPE IF EXISTS application_status;
 ALTER TYPE application_status_v2 RENAME TO application_status;
+
+-- A candidate can withdraw their own application to a real posting (see
+-- applications.ts's PATCH /:id/withdraw) instead of deleting the row
+-- outright, so the recruiter still sees what happened to it.
+ALTER TYPE application_status ADD VALUE IF NOT EXISTS 'Withdrawn';
 
 -- Structured post-interview feedback, replacing the old single free-text
 -- note — a recruiter fills these in from an applicant's card. Ratings are
@@ -195,12 +215,21 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS github_url TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS resume_uploaded_at TIMESTAMPTZ;
 
 -- One-time backfill from the old comma-separated `skills` text field into
--- the new technical_skills array, then drop it — safe to re-run since it
--- only touches rows that haven't been migrated yet (technical_skills IS NULL).
-UPDATE profiles
-SET technical_skills = (
-  SELECT array_remove(array_agg(NULLIF(trim(s), '')), NULL)
-  FROM unnest(string_to_array(skills, ',')) AS s
-)
-WHERE skills IS NOT NULL AND technical_skills IS NULL;
+-- the new technical_skills array, then drop it. Guarded on the column still
+-- existing — once dropped, a later re-run of this file would otherwise fail
+-- with "column skills does not exist" instead of being a no-op.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'profiles' AND column_name = 'skills'
+  ) THEN
+    UPDATE profiles
+    SET technical_skills = (
+      SELECT array_remove(array_agg(NULLIF(trim(s), '')), NULL)
+      FROM unnest(string_to_array(skills, ',')) AS s
+    )
+    WHERE skills IS NOT NULL AND technical_skills IS NULL;
+  END IF;
+END $$;
 ALTER TABLE profiles DROP COLUMN IF EXISTS skills;

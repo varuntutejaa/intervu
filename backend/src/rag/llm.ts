@@ -6,6 +6,7 @@ import type { RetrievedChunk } from "./types.js";
 export async function generateGroundedAnswer(
   question: string,
   chunks: RetrievedChunk[],
+  resumeText?: string,
 ): Promise<string> {
   const openai = getGroqClient();
   const response = await openai.chat.completions.create({
@@ -13,7 +14,7 @@ export async function generateGroundedAnswer(
     temperature: 0,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(question, chunks) },
+      { role: "user", content: buildUserPrompt(question, chunks, resumeText) },
     ],
   });
 

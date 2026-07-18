@@ -113,7 +113,7 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 | Backend | Node.js, Express, TypeScript |
 | Database | PostgreSQL (AWS RDS) |
 | Auth | AWS Cognito (email/password) + direct Google/GitHub OAuth |
-| AI Resume Assistant | Groq (chat, OpenAI-compatible API) + local Ollama (`nomic-embed-text` embeddings), FAISS (`faiss-node`), LangChain text splitters, `pdf-parse` |
+| AI Resume Assistant | Groq (chat, OpenAI-compatible API) + `@huggingface/transformers` (local in-process embeddings, `all-MiniLM-L6-v2`), FAISS (`faiss-node`), LangChain text splitters, `pdf-parse` |
 | AI Resume Autofill | Groq structured JSON extraction + `pdf-parse` (shares the Groq client with the assistant above) |
 | Hosting — frontend | AWS S3 (private) behind AWS CloudFront |
 | Hosting — backend | AWS EC2 (Ubuntu) + Nginx reverse proxy + PM2 |
@@ -131,7 +131,6 @@ flowchart LR
     EC2 --> Google[Google OAuth]
     EC2 --> GitHub[GitHub OAuth]
     EC2 --> Groq[Groq LLM API]
-    EC2 --> Ollama[(Local Ollama<br/>embeddings)]
 ```
 
 Frontend and backend are served from the **same CloudFront domain** — CloudFront routes `/api/*` to the EC2 backend and everything else to the S3-hosted static build. That means no CORS configuration and no mixed-content issues in production, and the auth cookie works exactly the same way as it does in local dev (where Vite's dev server proxies `/api` to the backend instead).
@@ -210,12 +209,12 @@ sequenceDiagram
 flowchart TD
     subgraph offline["npm run ingest — offline, run once or on knowledge-base changes"]
         PDF["backend/knowledge/*.pdf"] --> Chunk["LangChain RecursiveCharacterTextSplitter<br/>Strategy A: ~300 words / 50 overlap<br/>Strategy B: ~700 words / 100 overlap"]
-        Chunk --> Embed["Embed each chunk (Ollama, nomic-embed-text)"]
+        Chunk --> Embed["Embed each chunk (local, all-MiniLM-L6-v2)"]
         Embed --> Index[("FAISS index + metadata<br/>backend/data/rag/&lt;strategy&gt;")]
     end
 
     subgraph online["POST /api/chat — per question"]
-        Q["Candidate's question"] --> QEmbed["Embed the question (Ollama)"]
+        Q["Candidate's question"] --> QEmbed["Embed the question (local model)"]
         QEmbed --> Search["Cosine similarity search, top K = 5"]
         Index -.-> Search
         Search --> Gate{"Top score ≥ RAG_SIMILARITY_THRESHOLD?"}
@@ -283,11 +282,13 @@ That leaves almost nothing that's genuinely *global client-only* state — with 
 The landing-page chat is backed by a real Retrieval-Augmented Generation pipeline in `backend/src/rag/`, not a fake/local echo. It answers **only** from a curated knowledge base (`backend/knowledge/*.pdf`) and refuses to answer when retrieval confidence is too low, rather than falling back to the model's general knowledge.
 
 - **Chat:** Groq, via its OpenAI-compatible `/openai/v1` endpoint (the `openai` SDK works against it unmodified, just a different `baseURL`) — free tier, no local model to run.
-- **Embeddings:** local Ollama (`nomic-embed-text` by default), also via an OpenAI-compatible endpoint — runs entirely on this machine, no API key, no per-token cost. Requires Ollama installed and running (`ollama pull nomic-embed-text` once), since Groq has no embeddings API of its own.
+- **Embeddings:** `@huggingface/transformers` running `Xenova/all-MiniLM-L6-v2` fully in-process (ONNX/WASM) — no external service, no API key, no per-token cost, nothing to install beyond `npm install`. The model downloads once on first use and is cached locally after that, since Groq has no embeddings API of its own.
 - **Two chunking strategies**, both built by `npm run ingest` every time so switching is a pure config change: Strategy A (`small`, ~300 words / 50 overlap) and Strategy B (`large`, ~700 words / 100 overlap). `CHUNK_STRATEGY` picks which one `/api/chat` queries at runtime.
 - **Vector store:** `faiss-node` (flat inner-product index over L2-normalized embeddings, i.e. cosine similarity), persisted to disk alongside a JSON metadata sidecar (`{source, page, chunk}` per vector).
 - **Retrieval → generation:** top-K chunks are retrieved; if the top similarity score is below `RAG_SIMILARITY_THRESHOLD`, the API returns the "I could not find sufficient information..." fallback **without calling the LLM at all**. Otherwise the chunks are assembled into a strict "use only this context" prompt and sent to the configured chat model.
-- Every field (`GROQ_CHAT_MODEL`, `OLLAMA_EMBEDDING_MODEL`, `CHUNK_STRATEGY`, `RAG_TOP_K`, `RAG_SIMILARITY_THRESHOLD`) is an env var — see [Environment variables](#environment-variables).
+- **Personalization:** if the request carries a logged-in candidate's auth cookie and they have a resume on file, `/api/chat` extracts its text (`pdf-parse`, same helper the autofill feature below uses) and injects it into the prompt as a separate "Candidate's Resume" section alongside the retrieved knowledge-base chunks — this is what lets questions like "Is my resume ATS friendly?" or "What backend skills am I missing?" get answered about the *asker's own* resume rather than only in generic terms. Logged-out visitors (e.g. trying the assistant from the landing page) still get fully grounded, generic advice — the resume section is additive, not required.
+- Every field (`GROQ_CHAT_MODEL`, `EMBEDDING_MODEL`, `CHUNK_STRATEGY`, `RAG_TOP_K`, `RAG_SIMILARITY_THRESHOLD`) is an env var — see [Environment variables](#environment-variables).
+- **Chunking strategy comparison:** both strategies were evaluated head-to-head against the four example questions from the spec (retrieval score, whether each cleared the confidence gate, and citation accuracy) — see [EVALUATION.md](EVALUATION.md). Strategy A (small) won on every question and is the shipped default; Strategy B's larger chunks diluted per-topic similarity enough to drop one question below the confidence threshold entirely.
 
 `POST /api/chat` returns `{ answer, citations: [{ document, page }] }`, which the frontend (`features/landing`) renders as the assistant's reply plus a references list.
 
@@ -341,18 +342,18 @@ infra/                  # CloudFront distribution config + S3 bucket policy (ref
 
 ## Getting started
 
-**Prerequisites:** Node.js 20+, a PostgreSQL database (AWS RDS or local), an AWS Cognito User Pool, [Ollama](https://ollama.com) installed locally, a free [Groq](https://console.groq.com/keys) API key.
+**Prerequisites:** Node.js 20+, a PostgreSQL database (AWS RDS or local), an AWS Cognito User Pool, a free [Groq](https://console.groq.com/keys) API key.
 
 **Backend**
 
 ```bash
 cd backend
-cp .env.example .env          # fill in RDS + Cognito + OAuth + GROQ_API_KEY — see below
+cp .env.example .env      # fill in RDS + Cognito + OAuth + GROQ_API_KEY — see below
 npm install
-node scripts/init-db.mjs      # creates the database (if missing) and applies schema.sql
-ollama pull nomic-embed-text  # one-time — local embedding model for the RAG pipeline
-npm run ingest                 # builds both RAG chunking-strategy indexes from backend/knowledge/*.pdf
-npm run dev                    # http://localhost:3001
+node scripts/init-db.mjs  # creates the database (if missing) and applies schema.sql
+npm run ingest             # builds both RAG chunking-strategy indexes from backend/knowledge/*.pdf
+                            # (first run also downloads the local embedding model, ~90MB, one-time)
+npm run dev                # http://localhost:3001
 ```
 
 **Frontend**
@@ -385,11 +386,10 @@ All backend configuration lives in `backend/.env` (see `backend/.env.example` fo
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth App |
 | `GROQ_API_KEY` | Required for the AI Resume Assistant's chat model and resume-autofill extraction ([console.groq.com/keys](https://console.groq.com/keys), free tier) |
 | `GROQ_CHAT_MODEL` | Chat model for grounded answers and resume extraction (default `llama-3.3-70b-versatile`) |
-| `OLLAMA_BASE_URL` | Local Ollama server for embeddings (default `http://localhost:11434`) — Ollama must be installed and running |
-| `OLLAMA_EMBEDDING_MODEL` | Embedding model (default `nomic-embed-text`, pulled via `ollama pull nomic-embed-text`) — changing this requires re-running `npm run ingest` |
+| `EMBEDDING_MODEL` | Local sentence-transformer model run in-process via `@huggingface/transformers` (default `Xenova/all-MiniLM-L6-v2`) — changing this requires re-running `npm run ingest` |
 | `CHUNK_STRATEGY` | `small` (Strategy A, ~300w/50 overlap) or `large` (Strategy B, ~700w/100 overlap) — which pre-built index `/api/chat` queries |
 | `RAG_TOP_K` | Chunks retrieved per question (default `5`) |
-| `RAG_SIMILARITY_THRESHOLD` | Minimum cosine similarity (0–1) before the LLM is even called (default `0.75`) |
+| `RAG_SIMILARITY_THRESHOLD` | Minimum cosine similarity (0–1) before the LLM is even called (default `0.35`, calibrated for `all-MiniLM-L6-v2`'s score distribution — see [EVALUATION.md](EVALUATION.md)) |
 
 </details>
 
@@ -454,5 +454,5 @@ Both workflows also support manual runs via `workflow_dispatch` from the Actions
 - No rate limiting on auth endpoints beyond what Cognito enforces natively
 - The EC2 instance is a single node — no load balancer or auto-scaling
 - Forgot-password is a client-side-only confirmation screen — no backend reset-password endpoint exists yet
-- The AI Resume Assistant's *chat* answers from the curated `backend/knowledge/` PDFs only — it doesn't read a candidate's own resume (that's the separate autofill feature above, which is a one-shot extraction, not part of the chat's retrieval context)
-- The AI Resume Assistant's embeddings require Ollama running locally (`ollama pull nomic-embed-text`) — `npm run ingest` and `/api/chat` both fail if it isn't reachable at `OLLAMA_BASE_URL`
+- The AI Resume Assistant's embedding model (~90MB) downloads on first use and is cached under the backend's `node_modules/.cache` — the first `npm run ingest` or `/api/chat` call after a fresh install will be slower while that download happens
+- Resume personalization in `/api/chat` re-extracts and re-parses the candidate's PDF on every chat request rather than caching the extracted text — fine at this scale, but a repeat cost worth caching if usage grows
