@@ -72,15 +72,3 @@ export function useLogoutMutation() {
   });
 }
 
-export function useSwitchRoleMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (role: Role) => {
-      await apiJson("/api/auth/switch-role", "POST", { role }, "Couldn't switch roles. Try again.");
-      return fetchSession();
-    },
-    onSuccess: (session) => {
-      queryClient.setQueryData(sessionKey, session);
-    },
-  });
-}

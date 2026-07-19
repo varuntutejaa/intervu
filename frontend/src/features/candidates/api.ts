@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../../lib/api";
+import type { Paginated } from "../../lib/pagination";
 
 export type Candidate = {
   auth_sub: string;
@@ -22,9 +23,9 @@ export type Candidate = {
   avatar_url: string | null;
 };
 
-export function useCandidatesQuery() {
+export function useCandidatesQuery(page: number) {
   return useQuery({
-    queryKey: ["candidates"],
-    queryFn: () => apiFetch<Candidate[]>("/api/candidates"),
+    queryKey: ["candidates", page],
+    queryFn: () => apiFetch<Paginated<Candidate>>(`/api/candidates?page=${page}`),
   });
 }

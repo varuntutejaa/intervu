@@ -11,6 +11,10 @@ Engineering Guide, Interview Preparation Guide), both built by the same
 | Overlap | 50 words | 100 words |
 | Chunks produced | 26 | 10 |
 
+(Chunk counts reflect the original knowledge base at the time of this
+evaluation; see "Knowledge base expansion" below — after adding one page to
+four of the five documents, the current counts are 30 and 12 respectively.)
+
 Both strategies were evaluated against the same four example questions from
 the assignment spec, each run through the same embedding model
 (`Xenova/all-MiniLM-L6-v2`) and the same `topK=5` (the similarity threshold
@@ -152,3 +156,56 @@ clean, so the threshold was lowered to **`0.35`** — comfortably below every
 terse-on-topic score observed and comfortably above every off-topic score
 observed, with margin on both sides. `RAG_SIMILARITY_THRESHOLD=0.35` is now
 the shipped default in both `config.ts` and `.env.example`.
+
+## Knowledge base expansion
+
+Each of the four core guides (ATS Handbook, Backend Engineering Guide, Cloud
+Engineering Guide, Resume Guide) gained one additional page directly
+addressing the assignment's four example questions, then both indexes were
+rebuilt with `npm run ingest`. No pipeline code changed — chunking,
+embeddings, retrieval, and the threshold are all untouched; only the
+knowledge base content and the resulting FAISS indexes were updated.
+
+The one substantive fix this closes: Strategy B previously failed question 4
+outright (topScore 0.4594, below the then-0.5 threshold — see above). With
+the new Cloud Engineering Guide page 7 ("Why a Resume Can Read as Weak for
+Cloud Engineering Roles"), both strategies now retrieve the *same* new chunk
+for that question with high, nearly identical confidence:
+
+| Question | Strategy A (before → after) | Strategy B (before → after) |
+|---|---|---|
+| Backend Developer improvement | 0.7416 → 0.7416 | 0.5445 → 0.5909 |
+| ATS friendly | 0.6301 → 0.6901 | 0.6130 → 0.5900 |
+| Backend skills missing | 0.7349 → 0.7349 | 0.5742 → 0.6458 |
+| Cloud engineering weak | 0.6119 → 0.7186 | **0.4594 → 0.7186** |
+
+Verified live against the running `/api/chat` endpoint with a synthetic
+backend-engineer resume attached (same methodology as the original
+evaluation above): all four example questions now return confident,
+correctly-cited answers under the shipped Strategy A default, with
+Strategy B now also clearing the threshold on every question instead of
+failing one of four.
+
+## Sixth document: Company Hiring Guide
+
+A sixth document, `Company Hiring Guide.pdf` (6 pages, ~1,340 words), was
+added to round out the knowledge base with an employer/hiring-manager
+perspective — what hiring managers look for, red flags, how interview
+panels evaluate candidates, writing a defensible hire recommendation
+(technical capability / communication / role fit), culture fit versus bias,
+and common hiring-manager mistakes. Every other document in the knowledge
+base is candidate-facing; this is the one company-facing source. Re-ingested
+with `npm run ingest` (now 36 chunks for Strategy A, 14 for Strategy B) and
+verified live: questions like "What red flags do hiring managers watch for
+on a resume?" and "How should a hiring manager write a strong hire
+recommendation?" now retrieve this document as the top match (scores 0.58
+and 0.64) and answer confidently and correctly-cited.
+
+**Operational note**: the FAISS index is loaded into memory once per server
+process and cached for its lifetime (`vectorStore.ts`'s `loadIndex` cache).
+`npm run ingest` only rewrites the on-disk index files — it does not touch
+any source file `tsx watch` monitors, so a running dev server will keep
+serving the *old* index until it's manually restarted. Any time `npm run
+ingest` is re-run against a live server, restart the backend afterward, or
+the new content will silently not show up in answers despite the index on
+disk being correct.

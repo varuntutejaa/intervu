@@ -19,8 +19,8 @@ function formatFileSize(bytes: number) {
 // content underneath.
 export function PanelShell({ onClose, children }: { onClose: () => void; children: ReactNode }) {
   return (
-    <div className="flex h-[min(90vh,calc(100vh-9rem))] w-[90vw] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-[#1c1c1e] shadow-2xl">
-      <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-5 py-3">
+    <div className="flex h-[min(90vh,calc(100vh-9rem))] w-[90vw] flex-col overflow-hidden rounded-[32px] border border-black/10 bg-[#f7f7f8] shadow-2xl">
+      <div className="flex shrink-0 items-center gap-2 border-b border-black/10 px-5 py-3">
         <button
           type="button"
           aria-label="Close"
@@ -61,14 +61,14 @@ export function ChatPanel({
               return (
                 <div key={i} className="ml-auto flex max-w-[75%] flex-col items-end gap-2">
                   {turn.resume && (
-                    <div className="flex w-fit items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white">
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-white/60" />
+                    <div className="flex w-fit items-center gap-2 rounded-lg border border-black/10 bg-black/5 px-3 py-2 text-xs text-black">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-black/60" />
                       <span className="truncate">{turn.resume.name}</span>
-                      <span className="shrink-0 text-white/40">{formatFileSize(turn.resume.size)}</span>
+                      <span className="shrink-0 text-black/40">{formatFileSize(turn.resume.size)}</span>
                     </div>
                   )}
                   {turn.text && (
-                    <div className="w-fit rounded-2xl rounded-br-md bg-white px-4 py-2.5 text-sm text-black">
+                    <div className="w-fit rounded-2xl rounded-br-md bg-black px-4 py-2.5 text-sm text-white">
                       {turn.text}
                     </div>
                   )}
@@ -80,7 +80,7 @@ export function ChatPanel({
               return (
                 <div
                   key={i}
-                  className="mr-auto w-fit max-w-[75%] rounded-2xl rounded-bl-md bg-red-500/10 px-4 py-2.5 text-sm text-red-300"
+                  className="mr-auto w-fit max-w-[75%] rounded-2xl rounded-bl-md bg-red-50 px-4 py-2.5 text-sm text-red-700"
                 >
                   {turn.text}
                 </div>
@@ -89,12 +89,12 @@ export function ChatPanel({
 
             return (
               <div key={i} className="mr-auto flex max-w-[75%] flex-col gap-2">
-                <div className="w-fit rounded-2xl rounded-bl-md bg-white/10 px-4 py-2.5 text-sm text-white">
+                <div className="w-fit rounded-2xl rounded-bl-md bg-black/10 px-4 py-2.5 text-sm text-black">
                   {turn.text}
                 </div>
                 {turn.citations.length > 0 && (
-                  <div className="ml-1 text-xs text-white/40">
-                    <p className="font-medium text-white/50">References</p>
+                  <div className="ml-1 text-xs text-black/40">
+                    <p className="font-medium text-black/50">References</p>
                     <ul className="mt-1 space-y-0.5">
                       {turn.citations.map((c, ci) => (
                         <li key={ci}>
@@ -109,13 +109,13 @@ export function ChatPanel({
           })}
 
           {isPending && (
-            <div className="mr-auto w-fit rounded-2xl rounded-bl-md bg-white/10 px-4 py-2.5 text-sm text-white/50">
+            <div className="mr-auto w-fit rounded-2xl rounded-bl-md bg-black/10 px-4 py-2.5 text-sm text-black/50">
               Thinking…
             </div>
           )}
         </div>
 
-        <div className="border-t border-white/10 p-4">
+        <div className="border-t border-black/10 p-4">
           <ChatInput compact onSubmit={onSend} />
         </div>
       </div>

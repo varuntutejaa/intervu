@@ -36,7 +36,10 @@
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
 - [API reference](#api-reference)
+- [Testing](#testing)
+- [Docker](#docker)
 - [Deployment](#deployment)
+- [Infrastructure as code](#infrastructure-as-code)
 - [Security notes](#security-notes)
 - [Known limitations](#known-limitations)
 
@@ -134,6 +137,26 @@ flowchart LR
 ```
 
 Frontend and backend are served from the **same CloudFront domain** — CloudFront routes `/api/*` to the EC2 backend and everything else to the S3-hosted static build. That means no CORS configuration and no mixed-content issues in production, and the auth cookie works exactly the same way as it does in local dev (where Vite's dev server proxies `/api` to the backend instead).
+
+### Backend architecture
+
+The Express app is layered end to end — a route file never talks to the database or contains business logic directly:
+
+```
+routes/        Router() wiring only — path + method -> controller function
+controllers/    Thin HTTP glue: pull req.body/params/query, call the service, res.json() the result
+services/       Business logic — validation (Zod), authorization checks, orchestration across repositories
+repositories/   The only files that call pool.query() — raw SQL, nothing else
+```
+
+A request that fails anywhere in that chain throws (a Zod `ZodError`, or an `HttpError(status, message)` from `lib/httpError.ts`) and `asyncHandler` forwards it to one global error-handling middleware (`middleware/errorHandler.ts`) — every error response is `{ error: string }` with the right status code, and unexpected errors always collapse to a generic 500 rather than leaking internals.
+
+Other cross-cutting pieces:
+
+- **Structured request logging** via `pino`/`pino-http` — one JSON line per request (method, path, status, duration, request id) in production, pretty-printed in dev. Resume/avatar payloads and auth cookies are redacted from logs.
+- **Input validation** — every route validates its body/query against a `zod` schema in `schemas/`, including server-side resume/avatar upload limits (PDF-only, ≤4MB; image-only, ≤2MB) that don't rely on the frontend's own checks, since those are trivially bypassed by calling the API directly.
+- **Pagination** — every list endpoint (`/jobs`, `/jobs/mine`, `/candidates`, `/applications`) accepts `?page=`/`?pageSize=` (default 20, max 100) and returns `{ items, page, pageSize, total, totalPages }`.
+- **API docs** — a full OpenAPI 3.0 spec (`backend/openapi.json`) is served as interactive docs at `/api/docs` (Swagger UI) and as raw JSON at `/api/openapi.json` — importable directly into Postman.
 
 ## Key flows
 
@@ -263,10 +286,10 @@ The frontend is organized by **feature** (`src/features/<feature>/{api,schema,pa
 
 **Routing.** `src/app/router.tsx` defines the route table with `react-router-dom`'s `createBrowserRouter`. Two layout-route guards gate access:
 - `RequireAuth` — any authenticated user (mirrors the backend's `getAuthUser`-only checks, e.g. `GET/POST /api/profile`). Redirects to `/login` if there's no session.
-- `RequireRole(role)` — authenticated *and* holding a profile for that role (mirrors the backend's `requireRole(req, res, role)` gate on jobs/candidates/applications routes). An authenticated account that just hasn't set up that role yet is sent to `/profile-setup?role=...` rather than a dead-end — the same "let them set it up" behavior the product already had for role-switching.
+- `RequireRole(role)` — authenticated *and* holding a profile for that role (mirrors the backend's `requireRole(req, role)` guard, which every jobs/candidates/applications service calls before touching the database). An authenticated account that just hasn't set up that role yet is sent to `/profile-setup?role=...` rather than a dead-end — the same "let them set it up" behavior the product already had for role-switching.
 - `/` is a smart entry point: a logged-in recruiter is redirected to `/recruiter/dashboard`; everyone else sees the landing/chat page.
 
-**Data fetching.** Every network call goes through TanStack Query (`useQuery`/`useMutation`) via a thin `apiFetch`/`apiJson` helper (`src/lib/api.ts`) that centralizes error-message extraction and the "can't reach the server" case. Every list/detail view renders three explicit states — pending (skeleton/loading text), error (inline message, and a retry action where relevant), and empty (an explicit "no X yet" message) — not just the happy path.
+**Data fetching.** Every network call goes through TanStack Query (`useQuery`/`useMutation`) via a thin `apiFetch`/`apiJson` helper (`src/lib/api.ts`) that centralizes error-message extraction and the "can't reach the server" case. Every list/detail view renders three explicit states — pending (skeleton/loading text), error (inline message, and a retry action where relevant), and empty (an explicit "no X yet" message) — not just the happy path. Every paginated list (jobs, applications, candidates, a recruiter's own postings) shares one `Pager` component (`src/components/Pager.tsx`) and resets to page 1 whenever a filter changes.
 
 **Forms.** Every data-entry form (login, signup, profile setup/edit, post/edit job, log an application, applicant feedback) uses React Hook Form with a Zod schema (`zodResolver`) per feature in `schema.ts`. The existing hand-styled input components (`InputGroup`, `SelectGroup`, `TagInput`, etc.) stayed fully controlled rather than being rewritten — they're wired into RHF via `<Controller>`, which is the standard low-risk way to bring RHF into a codebase with pre-existing controlled components, so the visual design didn't need to change to add real validation.
 
@@ -312,30 +335,40 @@ backend/
   knowledge/            # PDFs auto-ingested into the RAG knowledge base
   data/rag/<strategy>/   # Generated FAISS indexes + metadata (gitignored build output)
   scripts/ingest.ts      # npm run ingest — builds both chunking-strategy indexes
+  openapi.json            # OpenAPI 3.0 spec — served at /api/docs (Swagger UI) and /api/openapi.json
+  Dockerfile, .dockerignore
   src/
-    index.ts             # Express app entry point
-    routes/               # One file per resource: auth, oauth, profile, jobs, candidates, applications, chat, resume
-    middleware/            # asyncHandler, requireRole, auth (JWT cookie read/set/clear)
-    lib/                    # db pool, Cognito client, JWT sign/verify, profile-role helpers, groq.ts (shared Groq client)
-    rag/                    # config, pdfLoader, chunker, embeddings, vectorStore, retriever, prompt, llm, ragService
+    index.ts             # Express app entry point — middleware, route mounting, Swagger UI, error handler
+    routes/               # Router() wiring only, per resource: auth, oauth, profile, jobs, candidates, applications, chat, resume
+    controllers/           # Thin HTTP glue — pulls req data, calls a service, res.json()s the result
+    services/               # Business logic — validation, authorization, orchestration
+    repositories/            # The only files that call pool.query()
+    schemas/                  # Zod schemas per resource, shared by every route's validation
+    middleware/                # asyncHandler, requireRole (throws HttpError), auth (JWT cookie read/set/clear), errorHandler
+    lib/                        # db pool, Cognito client, JWT sign/verify, logger (pino), httpError, pagination, dataUrl, profiles (identity linking)
+    rag/                         # config, pdfLoader, chunker, embeddings, vectorStore, retriever, prompt, llm, ragService
+    **/*.test.ts                  # Vitest unit tests, colocated with the code they cover
 
 frontend/src/
   main.tsx, index.css   # Entry point, global styles
   app/                   # router.tsx (routes + RequireAuth/RequireRole), queryClient.ts, providers.tsx
   types.ts               # Shared Role / NavUser types
-  components/             # Cross-feature UI: aurora/ (design system primitives, TagInput), chrome/ (NavBar)
-  lib/                    # api.ts (fetch helper), files.ts (data-URL encoding, size caps)
+  test/setup.ts           # Vitest + jsdom + RTL setup (jest-dom matchers, cleanup)
+  components/              # Cross-feature UI: aurora/ (design system primitives, TagInput), chrome/ (NavBar), Pager (+ Pager.test.tsx)
+  lib/                     # api.ts (fetch helper), files.ts (data-URL encoding, size caps), pagination.ts, format.ts (+ format.test.ts)
   features/
     auth/                 # api (session query + mutations), schema (Zod), store (Zustand), pages
     profile/              # Profile + ProfileSetup pages, AvatarPicker, candidate/recruiter field components
-    jobs/                  # Job board + post-a-job, shared job-form Zod schema
-    applications/          # Candidate applications dashboard
+    jobs/                  # Job board + job detail page + post-a-job, shared job-form Zod schema
+    applications/          # Candidate applications dashboard (withdraw/status logic split by platform vs. manual entries)
     recruiter-dashboard/   # Stats, job postings, applicants + feedback (EditJobModal/ApplicantsModal/ApplicantCard)
     candidates/            # Recruiter-facing candidate directory
     landing/               # Marketing page + AI Resume Assistant chat UI
 
-infra/                  # CloudFront distribution config + S3 bucket policy (reference/reproducibility)
-.github/workflows/       # deploy.yml (backend to EC2), deploy-frontend.yml (S3 + CloudFront)
+infra/                  # Terraform IaC (VPC/EC2/RDS/S3/CloudFront/IAM — written, not applied, see below)
+                         # plus cloudfront-config.json/s3-bucket-policy.json, the actual configs used to create the live resources
+docker-compose.yml       # backend + frontend + local Postgres, for a fully self-contained local run
+.github/workflows/       # ci.yml (lint+typecheck+test+build on every push/PR), deploy.yml (backend to EC2), deploy-frontend.yml (S3 + CloudFront)
 ```
 
 </details>
@@ -366,6 +399,23 @@ npm run dev               # http://localhost:5174, proxies /api to the backend
 
 Both servers need to be running locally — the frontend has no build-time environment variables of its own; everything (including OAuth) is driven server-side.
 
+Once the backend is running, interactive API docs are at `http://localhost:3001/api/docs`.
+
+**Quality checks**
+
+```bash
+cd backend
+npm run lint        # oxlint
+npm run typecheck   # tsc --noEmit
+npm test            # vitest — unit tests for every service, plus validation/pagination/error-handling
+npm run build       # tsc -p tsconfig.json -> dist/
+
+cd frontend
+npm run lint        # oxlint
+npm test            # vitest — jsdom + React Testing Library
+npm run build        # tsc -b && vite build
+```
+
 ## Environment variables
 
 All backend configuration lives in `backend/.env` (see `backend/.env.example` for the full annotated list). Nothing is required on the frontend.
@@ -390,15 +440,19 @@ All backend configuration lives in `backend/.env` (see `backend/.env.example` fo
 | `CHUNK_STRATEGY` | `small` (Strategy A, ~300w/50 overlap) or `large` (Strategy B, ~700w/100 overlap) — which pre-built index `/api/chat` queries |
 | `RAG_TOP_K` | Chunks retrieved per question (default `5`) |
 | `RAG_SIMILARITY_THRESHOLD` | Minimum cosine similarity (0–1) before the LLM is even called (default `0.35`, calibrated for `all-MiniLM-L6-v2`'s score distribution — see [EVALUATION.md](EVALUATION.md)) |
+| `LOG_LEVEL` | `pino` log level (default `info`) |
+| `NODE_ENV` | `production` switches request logs to structured JSON (dev default is human-readable, colorized) |
 
 </details>
 
 ## API reference
 
-All routes are mounted under `/api`. JWT-authenticated routes read this app's own signed JWT from an httpOnly cookie set at login (see [Security notes](#security-notes)); role-gated routes 403 if the account doesn't have that profile — checked against the database on every request, not just the JWT claim.
+All routes are mounted under `/api`. JWT-authenticated routes read this app's own signed JWT from an httpOnly cookie set at login (see [Security notes](#security-notes)); role-gated routes 403 if the account doesn't have that profile — checked against the database on every request, not just the JWT claim. Every `GET` list endpoint accepts `?page=`/`?pageSize=` and returns `{ items, page, pageSize, total, totalPages }`.
+
+**Full interactive reference (request/response schemas, try-it-out): `/api/docs`** (Swagger UI, generated from `backend/openapi.json`, also importable directly into Postman).
 
 <details>
-<summary>Full endpoint reference</summary>
+<summary>Endpoint summary</summary>
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -407,7 +461,7 @@ All routes are mounted under `/api`. JWT-authenticated routes read this app's ow
 | POST | `/auth/resend-code` | — | Resend the verification code |
 | POST | `/auth/login` | — | Email/password login |
 | GET | `/auth/google/start`, `/auth/github/start` | — | Kick off OAuth redirect |
-| GET | `/auth/google/callback`, `/auth/github/callback` | — | OAuth callback, sets the auth cookie |
+| GET | `/auth/google/callback`, `/auth/github/callback` | — | OAuth callback — resolves to the same account as a password login under the same email (see [Security notes](#security-notes)), sets the auth cookie |
 | POST | `/auth/logout` | JWT | Clear the auth cookie |
 | GET | `/auth/me` | JWT | Current user, active role, and all roles the account has |
 | POST | `/auth/switch-role` | JWT | Change which profile (candidate/recruiter) is active |
@@ -415,22 +469,69 @@ All routes are mounted under `/api`. JWT-authenticated routes read this app's ow
 | POST | `/profile` | JWT | Create/update a profile for a given role |
 | DELETE | `/profile/resume` | Candidate | Remove the candidate's uploaded resume |
 | POST | `/resume/parse` | JWT | AI resume autofill — `{ resumeData }` in, extracted `{ fields }` out; see [AI resume parsing & autofill](#ai-resume-parsing--autofill) |
-| GET | `/jobs` | — | Public job listing (search + type/mode/experience/location filters) |
-| GET | `/jobs/mine` | Recruiter | Jobs posted by the current account |
+| GET | `/jobs` | — | Public, paginated job listing (search + type/mode/experience/location filters) |
+| GET | `/jobs/mine` | Recruiter | Jobs posted by the current account, paginated |
 | GET | `/jobs/stats` | Recruiter | Own posting stats plus platform-wide candidate/resume/company/interview figures |
+| GET | `/jobs/:id` | — | Single job detail (public, works for closed jobs too — the full-page job detail view) |
 | GET | `/jobs/:id/applicants` | Recruiter (owner) | Applicants for a specific job |
 | PATCH | `/jobs/:id/applicants/:applicationId` | Recruiter (owner) | Update an applicant's status and structured interview feedback |
 | POST | `/jobs` | Recruiter | Post a new job |
 | PATCH | `/jobs/:id` | Recruiter (owner) | Edit a posting, or close/reopen it via `{ status }` |
-| GET | `/candidates` | Recruiter | Every candidate profile |
-| GET | `/applications` | Candidate | The current account's applications (`?q=`, `?status=`, `?sort=asc\|desc`) |
+| GET | `/candidates` | Recruiter | Every candidate profile, paginated |
+| GET | `/applications` | Candidate | The current account's applications, paginated (`?q=`, `?status=`, `?sort=asc\|desc`) |
 | POST | `/applications` | Candidate | Apply to a posted job (`jobId`), or log one made elsewhere (`company` + `position`) |
-| PATCH | `/applications/:id` | Candidate (owner) | Update status, company, position, or applied date |
-| DELETE | `/applications/:id` | Candidate (owner) | Remove an application |
-| POST | `/chat` | — | AI Resume Assistant — `{ question }` in, `{ answer, citations }` out; see [AI Resume Assistant (RAG pipeline)](#ai-resume-assistant-rag-pipeline) |
+| PATCH | `/applications/:id` | Candidate (owner) | Edit a **manually-logged** application only (`job_id` null) — status/company/position/date. An application to a real posting 403s here: the recruiter owns its status (via the applicants endpoint above), the candidate's only action on it is to withdraw |
+| PATCH | `/applications/:id/withdraw` | Candidate (owner) | Withdraw an application to a real posting — sets status to `Withdrawn`, preserving the row (and any recruiter feedback already on it) instead of deleting it |
+| DELETE | `/applications/:id` | Candidate (owner) | Remove a **manually-logged** application only — an application to a real posting 403s here (withdraw instead), so a recruiter's view of it can never be silently pulled out from under them |
+| POST | `/chat` | — | AI Resume Assistant — `{ question, resumeData? }` in, `{ answer, citations }` out; personalizes against the caller's own resume if logged in (or one attached directly to the request); see [AI Resume Assistant (RAG pipeline)](#ai-resume-assistant-rag-pipeline) |
 | GET | `/health` | — | Liveness check, verifies DB connectivity |
+| GET | `/docs` | — | Interactive Swagger UI |
+| GET | `/openapi.json` | — | Raw OpenAPI 3.0 spec |
 
 </details>
+
+## Testing
+
+```bash
+cd backend && npm test    # vitest run
+cd frontend && npm test   # vitest run (jsdom + React Testing Library)
+```
+
+Unit tests are colocated with the code they cover (`src/**/*.test.ts`) and run against mocked repositories/DB calls rather than a live database — fast, and correct isolation for a layered architecture where the service layer owns all the business logic. Every service has a test file; coverage focuses on the parts with real, non-obvious behavior:
+
+- `applicationsService.test.ts` — the candidate self-service restrictions: status/delete are rejected for applications to real postings (403, must withdraw instead) but allowed for manually-logged ones
+- `jobsService.test.ts` — ownership checks (a recruiter can't edit/view-applicants-for/leave-feedback-on another recruiter's posting) and the dashboard stats aggregation math (per-status rollups, per-job breakdown, interview-completion-rate rounding and its divide-by-zero guard)
+- `authService.test.ts` — every mapped Cognito exception resolves to its specific friendly message, an *unmapped* one still resolves to a safe generic message (never leaks the raw AWS error), and the login-role-selection fallback logic
+- `profileService.test.ts` — the active-role default vs. an explicit `?role=` override, and that saving a profile re-signs the session cookie with that role active
+- `resumeService.test.ts` — the AI-extraction sanitizer: bare `linkedin.com/...` URLs get `https://` prepended, an out-of-range experience value is discarded rather than trusted, non-string entries are filtered out of skill arrays
+- `chatService.test.ts` — an attached resume takes priority over a stored one even when logged in, and the stored-resume lookup is never even attempted once an attachment is present
+- `candidatesService.test.ts` — requires the recruiter role before ever querying the repository
+- `profiles.test.ts` — the Google/GitHub OAuth identity-linking fix (`resolveCanonicalSub`), including the case-insensitive email match
+- `errorHandler.test.ts` — Zod errors, `HttpError`s, and unrecognized errors all map to the right status/shape, and internals never leak in a 500
+- `pagination.test.ts`, `dataUrl.test.ts` — the pure helpers list pagination and upload-size validation are built on
+
+**Frontend** (Vitest + jsdom + React Testing Library):
+
+- `Pager.test.tsx` — a real component test (render, click, assert the callback args) covering the shared pagination control every list page uses, including its boundary-disabling at page 1 / the last page
+- `format.test.ts` — the rupee/lakh salary formatting, including the crore-scale digit-grouping case
+- `jobs/schema.test.ts` — the job-form-to-API-payload transform: skills string splitting/trimming, empty-string-to-`null` coercion for optional fields, salary string-to-number conversion
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Brings up three containers: a local Postgres (`db`), the backend (`Dockerfile`, multi-stage: `tsc` build → slim runtime image), and the frontend (`Dockerfile`, multi-stage: Vite build → nginx, which also reverse-proxies `/api` to the backend container — the same "one origin" shape CloudFront gives in prod). Backend secrets still come from `backend/.env` (`env_file:` in `docker-compose.yml`); only the DB connection is overridden to point at the bundled Postgres instead of RDS.
+
+First run needs the schema applied and the RAG index built inside the backend container:
+
+```bash
+docker compose exec backend node scripts/init-db.mjs
+docker compose exec backend npm run ingest
+```
+
+Frontend: `http://localhost:8080`. Backend directly: `http://localhost:3001` (docs at `/api/docs`).
 
 ## Deployment
 
@@ -438,15 +539,24 @@ All routes are mounted under `/api`. JWT-authenticated routes read this app's ow
 
 **Frontend** — `deploy-frontend.yml` builds the Vite app and syncs it to a private S3 bucket on every push to `main` touching `frontend/**`, then invalidates the CloudFront cache. The S3 bucket has no public access — it's only reachable through CloudFront via an Origin Access Control.
 
-Both workflows also support manual runs via `workflow_dispatch` from the Actions tab.
+Both workflows also support manual runs via `workflow_dispatch` from the Actions tab. Neither deploy workflow gates on tests — `ci.yml` is the actual quality gate (lint, typecheck, `vitest`, and a full build for both backend and frontend), running on every push and pull request, deploy or not.
+
+## Infrastructure as code
+
+`infra/*.tf` describes the deployment environment above as Terraform: VPC + two public subnets, the backend EC2 instance (least-privilege IAM — its instance role grants exactly the four Cognito actions `backend/src/lib/cognito.ts` actually calls, scoped to one User Pool ARN, nothing account-wide), RDS Postgres, and S3 + CloudFront for the frontend. CI/CD credentials use GitHub's OIDC provider (`deployer.tf`) rather than long-lived access keys, scoped to exactly `s3:PutObject`/`DeleteObject`/`ListBucket` on this project's own bucket and `cloudfront:CreateInvalidation` on this project's own distribution.
+
+**This has not been applied** — see `infra/README.md` for why, and for `terraform init`/`plan`/`apply` usage. The bucket/distribution actually live today were created manually before this Terraform config existed (their raw configs are kept alongside it, `infra/cloudfront-config.json` / `infra/s3-bucket-policy.json`, for reference).
 
 ## Security notes
 
 - **Password hashing:** passwords never touch the application layer — Cognito is the sole system of record for them and hashes/salts every password internally (industry-standard SRP-based storage); the app never sees, stores, or has access to a password or its hash. Building a second, parallel password store here would be a strictly worse security posture than delegating to Cognito.
 - **JWT authentication:** the backend signs its own JWT after login (`lib/jwt.ts`) and carries it in an `httpOnly`, `sameSite=lax` cookie — `secure` is enabled automatically in production. This is a real, stateless JWT (no server-side session store — a backend restart no longer logs anyone out), while still keeping the XSS protection of `httpOnly` that JWT-in-localStorage gives up.
 - **RBAC enforced server-side:** `requireRole` checks the `profiles` table on every protected request — the frontend hiding a button is a UX nicety, never the actual gate. A recruiter can only see applicants for jobs *they* posted; a candidate can only see their own applications and only their own interview feedback.
+- **Cross-provider identity linking:** Cognito (password) and Google/GitHub (OAuth) each mint their own, unrelated identity for the same person. `resolveCanonicalSub` (`lib/profiles.ts`) resolves an OAuth login to the *existing* account for that email (case-insensitive) if one already has a profile, instead of silently creating a second, disconnected account — the bug this fixed and its regression test are in `lib/profiles.test.ts`.
+- **Input validation:** every route validates against a `zod` schema (`schemas/`) — including server-side resume/avatar upload limits (PDF-only ≤4MB, image-only ≤2MB) that don't just trust whatever the frontend already checked.
 - Every database query is parameterized (no string-built SQL)
 - OAuth client secrets, the Cognito app secret, and the Groq API key never reach the frontend bundle
+- Structured request logs (`pino-http`) redact resume/avatar payloads, passwords, and the auth cookie — never end up in a log line
 
 ## Known limitations
 
@@ -456,3 +566,5 @@ Both workflows also support manual runs via `workflow_dispatch` from the Actions
 - Forgot-password is a client-side-only confirmation screen — no backend reset-password endpoint exists yet
 - The AI Resume Assistant's embedding model (~90MB) downloads on first use and is cached under the backend's `node_modules/.cache` — the first `npm run ingest` or `/api/chat` call after a fresh install will be slower while that download happens
 - Resume personalization in `/api/chat` re-extracts and re-parses the candidate's PDF on every chat request rather than caching the extracted text — fine at this scale, but a repeat cost worth caching if usage grows
+- Frontend test coverage is intentionally narrow (pure logic + one representative component test) rather than exhaustive — no tests yet for the data-fetching hooks or full page flows
+- Terraform (`infra/*.tf`) describes the deployment environment but has never been applied — the live infrastructure was provisioned manually; adopting Terraform means either importing those existing resources or cutting over to freshly-provisioned ones

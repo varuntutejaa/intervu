@@ -26,7 +26,7 @@ function isPdf(file: File) {
 }
 
 function SectionHeading({ title }: { title: string }) {
-  return <h2 className="font-fustat text-lg font-semibold text-white">{title}</h2>;
+  return <h2 className="font-fustat text-lg font-semibold text-black">{title}</h2>;
 }
 
 export function CandidateProfileFields({
@@ -86,12 +86,12 @@ export function CandidateProfileFields({
               type="button"
               onClick={() => onAutofillFromResume(resumeFile)}
               disabled={isAutofilling}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-black/5 px-3.5 py-1.5 text-xs font-medium text-black transition-colors hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Sparkles className="h-3.5 w-3.5" />
               {isAutofilling ? "Reading resume…" : "Autofill from resume"}
             </button>
-            {autofillError && <p className="mt-1.5 text-xs text-red-400">{autofillError}</p>}
+            {autofillError && <p className="mt-1.5 text-xs text-red-600">{autofillError}</p>}
           </div>
         )}
 
@@ -100,13 +100,13 @@ export function CandidateProfileFields({
             <a
               href={existingResumeData}
               download={existingResumeFilename ?? "resume"}
-              className="inline-flex items-center gap-1 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white"
+              className="inline-flex items-center gap-1 text-xs font-medium text-black/60 underline underline-offset-2 hover:text-black"
             >
               <FileText className="h-3 w-3" />
               View current resume
             </a>
             {existingResumeUploadedAt && (
-              <span className="text-xs text-white/30">
+              <span className="text-xs text-black/30">
                 Uploaded {formatUploadDate(existingResumeUploadedAt)}
               </span>
             )}
@@ -115,14 +115,14 @@ export function CandidateProfileFields({
                 type="button"
                 onClick={onDeleteResume}
                 disabled={isDeletingResume}
-                className="text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                className="text-xs font-medium text-red-600 underline underline-offset-2 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isDeletingResume ? "Removing…" : "Delete resume"}
               </button>
             )}
           </div>
         )}
-        {deleteResumeError && <p className="text-xs text-red-400">{deleteResumeError}</p>}
+        {deleteResumeError && <p className="text-xs text-red-600">{deleteResumeError}</p>}
       </section>
 
       <div className="space-y-6">

@@ -16,8 +16,8 @@ import type { Role } from "../types";
 
 function FullPageLoader() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-[#141414]">
-      <p className="text-sm text-white/50">Loading…</p>
+    <div className="flex min-h-screen w-full items-center justify-center bg-white">
+      <p className="text-sm text-black/50">Loading…</p>
     </div>
   );
 }
@@ -61,11 +61,14 @@ function HomeRoute() {
     return <Navigate to={`/profile-setup?role=${session.role}`} replace />;
   }
   if (session?.role === "recruiter") return <Navigate to="/recruiter/dashboard" replace />;
-  return <LandingPage />;
+  // The jobs board is the landing page — the AI resume assistant lives at
+  // /assistant now (still linked from the nav), not the root.
+  return <JobsPage />;
 }
 
 export const router = createBrowserRouter([
   { path: "/", element: <HomeRoute /> },
+  { path: "/assistant", element: <LandingPage /> },
   { path: "/jobs", element: <JobsPage /> },
   { path: "/jobs/:id", element: <JobDetailPage /> },
   { path: "/login", element: <LoginPage /> },

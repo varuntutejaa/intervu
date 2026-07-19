@@ -123,7 +123,7 @@ export default function ProfileSetupPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#141414]">
+    <div className="min-h-screen w-full bg-white">
       <div className="fixed inset-x-0 top-0 z-20">
         <NavBar />
       </div>
@@ -138,8 +138,8 @@ export default function ProfileSetupPage() {
         ) : (
           <>
             <div>
-              <h1 className="font-fustat text-3xl font-bold text-white">Set up your profile</h1>
-              <p className="mt-2 text-sm text-white/40">
+              <h1 className="font-fustat text-3xl font-bold text-black">Set up your profile</h1>
+              <p className="mt-2 text-sm text-black/40">
                 {role === "candidate"
                   ? "Tell us a bit about your experience so we can find the right roles."
                   : "Tell us a bit about your company so we can find the right candidates."}
@@ -173,7 +173,7 @@ export default function ProfileSetupPage() {
               )}
 
               {saveProfileMutation.error && (
-                <p className="text-sm text-red-400">{saveProfileMutation.error.message}</p>
+                <p className="text-sm text-red-600">{saveProfileMutation.error.message}</p>
               )}
 
               <div className="flex items-center gap-3 pt-2">
@@ -181,14 +181,14 @@ export default function ProfileSetupPage() {
                   type="button"
                   onClick={handleSkip}
                   disabled={saveProfileMutation.isPending}
-                  className="h-14 flex-1 rounded-xl border border-white/10 font-semibold text-white/60 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-14 flex-1 rounded-xl border border-black/10 font-semibold text-black/60 transition-colors hover:bg-black/5 hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Skip for now
                 </button>
                 <button
                   type="submit"
                   disabled={saveProfileMutation.isPending}
-                  className="h-14 flex-1 rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-14 flex-1 rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {saveProfileMutation.isPending ? "Saving…" : "Save & Continue"}
                 </button>

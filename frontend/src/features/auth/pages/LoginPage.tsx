@@ -61,14 +61,14 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setPendingRole(null)}
-              className="text-xs font-medium text-white/40 underline underline-offset-2 transition-colors hover:text-white"
+              className="text-xs font-medium text-black/40 underline underline-offset-2 transition-colors hover:text-black"
             >
               Change role
             </button>
-            <h2 className="mt-3 text-3xl font-medium tracking-tight text-white">
+            <h2 className="mt-3 text-3xl font-medium tracking-tight text-black">
               {pendingRole === "candidate" ? "Welcome back, candidate" : "Welcome back, recruiter"}
             </h2>
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-black/40">
               {pendingRole === "candidate"
                 ? "Log in to keep working on your resume."
                 : "Log in to keep sourcing great candidates."}
@@ -106,7 +106,7 @@ export default function LoginPage() {
                   labelRight={
                     <Link
                       to="/forgot-password"
-                      className="text-xs font-medium text-white/40 underline underline-offset-2 transition-colors hover:text-white"
+                      className="text-xs font-medium text-black/40 underline underline-offset-2 transition-colors hover:text-black"
                     >
                       Forgot password?
                     </Link>
@@ -116,7 +116,7 @@ export default function LoginPage() {
             />
 
             {(loginMutation.error ?? oauthError) && (
-              <p className="text-sm text-red-400">
+              <p className="text-sm text-red-600">
                 {loginMutation.error?.message ?? oauthError}
               </p>
             )}
@@ -124,7 +124,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loginMutation.isPending}
-              className="mt-4 h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-4 h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {loginMutation.isPending ? "Logging in…" : "Log in"}
             </button>
@@ -132,9 +132,9 @@ export default function LoginPage() {
         </>
       )}
 
-      <p className="text-center text-sm text-white/40">
+      <p className="text-center text-sm text-black/40">
         Don't have an account?{" "}
-        <Link to="/signup" className="font-medium text-white underline underline-offset-2">
+        <Link to="/signup" className="font-medium text-black underline underline-offset-2">
           Sign up
         </Link>
       </p>

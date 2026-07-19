@@ -79,14 +79,14 @@ export default function PostJobPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#141414]">
+    <div className="min-h-screen w-full bg-white">
       <div className="fixed inset-x-0 top-0 z-20">
         <NavBar />
       </div>
 
       <div className="mx-auto max-w-3xl px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
-        <h1 className="font-fustat text-3xl font-bold text-white">Post a job</h1>
-        <p className="mt-2 text-sm text-white/40">
+        <h1 className="font-fustat text-3xl font-bold text-black">Post a job</h1>
+        <p className="mt-2 text-sm text-black/40">
           This goes straight into the public jobs board candidates browse.
         </p>
 
@@ -265,6 +265,20 @@ export default function PostJobPage() {
                 />
               )}
             />
+            <Controller
+              name="companyLogoUrl"
+              control={control}
+              render={({ field }) => (
+                <InputGroup
+                  label="Company logo URL (optional)"
+                  placeholder="https://logo.clearbit.com/yourcompany.com"
+                  type="text"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.companyLogoUrl?.message}
+                />
+              )}
+            />
           </div>
 
           <Controller
@@ -313,10 +327,10 @@ export default function PostJobPage() {
           />
 
           {createJobMutation.error && (
-            <p className="text-sm text-red-400">{createJobMutation.error.message}</p>
+            <p className="text-sm text-red-600">{createJobMutation.error.message}</p>
           )}
           {jobCode && (
-            <p className="text-sm text-emerald-400">
+            <p className="text-sm text-emerald-600">
               Job posted. Reference code: <span className="font-semibold">{jobCode}</span>
             </p>
           )}
@@ -324,7 +338,7 @@ export default function PostJobPage() {
           <button
             type="submit"
             disabled={createJobMutation.isPending}
-            className="h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {createJobMutation.isPending ? "Posting…" : "Post job"}
           </button>

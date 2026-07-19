@@ -42,10 +42,10 @@ export function AvatarPicker({
           <img
             src={avatarUrl}
             alt="Profile"
-            className="h-16 w-16 rounded-full border border-white/10 object-cover"
+            className="h-16 w-16 rounded-full border border-black/10 object-cover"
           />
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-brand-gray font-grotesk text-lg font-semibold text-white">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border border-black/10 bg-brand-gray font-grotesk text-lg font-semibold text-black">
             {initials(email)}
           </div>
         )}
@@ -53,16 +53,16 @@ export function AvatarPicker({
           type="button"
           onClick={() => inputRef.current?.click()}
           aria-label="Change profile picture"
-          className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white text-black transition-colors hover:bg-white/80"
+          className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-black/10 bg-black text-white transition-colors hover:bg-black/80"
         >
           <Camera className="h-3.5 w-3.5" />
         </button>
       </div>
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-white">{email}</p>
-        <p className="text-xs text-white/40">Profile picture (optional)</p>
+        <p className="truncate text-sm font-medium text-black">{email}</p>
+        <p className="text-xs text-black/40">Profile picture (optional)</p>
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }

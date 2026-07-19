@@ -68,6 +68,7 @@ export function EditJobModal({
       discipline: job.discipline ?? "",
       responsibilities: job.responsibilities ?? "",
       qualifications: job.qualifications ?? "",
+      companyLogoUrl: job.company_logo_url ?? "",
     },
   });
 
@@ -84,18 +85,18 @@ export function EditJobModal({
     <div className="fixed inset-0 z-30 flex items-center justify-center p-4">
       <button type="button" aria-label="Close" onClick={onClose} className="fixed inset-0 bg-black/70" />
 
-      <div className="relative h-[80vh] w-[90vw] overflow-y-auto rounded-2xl border border-white/10 bg-[#1c1c1e] p-6 shadow-2xl sm:h-[70vh] sm:w-[70vw]">
+      <div className="relative h-[80vh] w-[90vw] overflow-y-auto rounded-2xl border border-black/10 bg-[#f7f7f8] p-6 shadow-2xl sm:h-[70vh] sm:w-[70vw]">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-black/50 transition-colors hover:bg-black/10 hover:text-black"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="pr-8 font-fustat text-2xl font-bold text-white">Edit job</h2>
-        <p className="mt-1 text-sm text-white/50">#{job.job_code}</p>
+        <h2 className="pr-8 font-fustat text-2xl font-bold text-black">Edit job</h2>
+        <p className="mt-1 text-sm text-black/50">#{job.job_code}</p>
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -272,6 +273,20 @@ export function EditJobModal({
                 />
               )}
             />
+            <Controller
+              name="companyLogoUrl"
+              control={control}
+              render={({ field }) => (
+                <InputGroup
+                  label="Company logo URL (optional)"
+                  placeholder="https://logo.clearbit.com/yourcompany.com"
+                  type="text"
+                  value={field.value}
+                  onChange={field.onChange}
+                  error={errors.companyLogoUrl?.message}
+                />
+              )}
+            />
           </div>
 
           <div className="mt-4 space-y-4">
@@ -320,13 +335,13 @@ export function EditJobModal({
           </div>
 
           {updateJobMutation.error && (
-            <p className="mt-4 text-sm text-red-400">{updateJobMutation.error.message}</p>
+            <p className="mt-4 text-sm text-red-600">{updateJobMutation.error.message}</p>
           )}
 
           <button
             type="submit"
             disabled={updateJobMutation.isPending}
-            className="mt-6 h-12 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-6 h-12 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {updateJobMutation.isPending ? "Saving…" : "Save changes"}
           </button>

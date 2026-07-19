@@ -20,6 +20,7 @@ export const jobFormSchema = z.object({
   discipline: z.string(),
   responsibilities: z.string(),
   qualifications: z.string(),
+  companyLogoUrl: z.string().refine((v) => v === "" || /^https?:\/\//.test(v), "Enter a valid URL."),
 });
 export type JobFormValues = z.infer<typeof jobFormSchema>;
 
@@ -39,6 +40,7 @@ export const EMPTY_JOB_FORM_VALUES: JobFormValues = {
   discipline: "",
   responsibilities: "",
   qualifications: "",
+  companyLogoUrl: "",
 };
 
 // Shared by PostJobPage (create) and recruiter-dashboard's EditJobModal
@@ -63,5 +65,6 @@ export function jobFormValuesToPayload(values: JobFormValues) {
     discipline: values.discipline || null,
     responsibilities: values.responsibilities || null,
     qualifications: values.qualifications || null,
+    companyLogoUrl: values.companyLogoUrl || null,
   };
 }

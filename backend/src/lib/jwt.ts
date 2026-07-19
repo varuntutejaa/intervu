@@ -24,7 +24,19 @@ export type AppTokenPayload = {
   activeRole?: "candidate" | "recruiter";
 };
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev-only-secret-change-me";
+// Signing with a hardcoded fallback in production would mean every deploy
+// without JWT_SECRET set silently trusts a secret checked into source — fail
+// loudly at startup instead. Dev/test keep the fallback so local setup isn't
+// blocked on generating a real secret.
+function resolveJwtSecret(): string {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET must be set in production.");
+  }
+  return "dev-only-secret-change-me";
+}
+
+const JWT_SECRET = resolveJwtSecret();
 const JWT_EXPIRES_IN = "7d";
 
 export function signAppToken(payload: AppTokenPayload): string {

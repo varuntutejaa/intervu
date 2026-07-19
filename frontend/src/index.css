@@ -8,9 +8,17 @@
   --font-grotesk: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-fustat: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-aurora: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --color-brand-gray: #1a1a1a;
+  /* Light theme: subtle recessed-surface gray for inputs/selects (was a
+     near-black #1a1a1a when the app was dark-themed). */
+  --color-brand-gray: #f3f4f6;
+  /* The one spot of color in an otherwise monochrome app — reserved for
+     the AI resume assistant surface specifically, so it reads as the
+     "AI-forward" touchpoint rather than a general brand color. */
+  --color-accent: #8b7cff;
+  --color-accent-soft: #7c6ae6;
 }
 
 body {
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background-color: #ffffff;
 }

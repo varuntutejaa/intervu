@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Ref } from "react";
-import { Briefcase, ClipboardList, FileText, MessageSquare, Sparkles, Mic, type LucideIcon } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { ArrowRight, ChevronDown, ClipboardList, FileText, Sparkles, type LucideIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { NavBar } from "../../../components/chrome/NavBar";
 import { readFileAsDataUrl } from "../../../lib/files";
 import { useChatMutation } from "../api";
@@ -14,7 +14,7 @@ type Feature = {
   description: string;
 };
 
-const FEATURES: Feature[] = [
+const CANDIDATE_FEATURES: Feature[] = [
   {
     icon: Sparkles,
     title: "AI resume review",
@@ -22,36 +22,33 @@ const FEATURES: Feature[] = [
   },
   {
     icon: FileText,
-    title: "Resume parsing",
-    description: "Attach a PDF or Word doc and we'll pull out what matters.",
-  },
-  {
-    icon: Mic,
-    title: "Voice input",
-    description: "Speak your questions instead of typing them out.",
-  },
-  {
-    icon: Briefcase,
-    title: "Job matching",
-    description: "Browse curated openings that match your profile.",
+    title: "Resume parsing & autofill",
+    description: "Attach a PDF and we'll pull your skills, experience, and links straight into your profile.",
   },
   {
     icon: ClipboardList,
     title: "Application tracking",
-    description: "Keep tabs on every application's status in one place.",
-  },
-  {
-    icon: MessageSquare,
-    title: "Follow-up chat",
-    description: "Keep refining your resume with contextual follow-up questions.",
+    description: "Keep tabs on every application's status, from applied to offer, in one place.",
   },
 ];
 
-type ActivePanel = "chat" | null;
+// A mix of instantly-run chat prompts and direct links to the other pillars
+// of the product — fills the space below the input and signals, right in
+// the hero, that this isn't just a single-purpose chat tool. A fixed 2x2
+// grid (not flex-wrap) so the layout is always deterministic, never an
+// accidental-looking wrap.
+type PromptChip = { label: string } & ({ kind: "prompt"; question: string } | { kind: "link"; to: string });
+
+const CANDIDATE_CHIPS: PromptChip[] = [
+  { kind: "prompt", label: "Is my resume ATS friendly?", question: "Is my resume ATS friendly?" },
+  { kind: "prompt", label: "What skills am I missing?", question: "What skills am I missing for this role?" },
+  { kind: "link", label: "Browse open roles", to: "/jobs" },
+  { kind: "link", label: "Track my applications", to: "/applications" },
+];
 
 export default function LandingPage() {
-  const location = useLocation();
-  const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const navigate = useNavigate();
+  const [activePanel, setActivePanel] = useState<"chat" | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const chatMutation = useChatMutation();
   const featuresRef = useRef<HTMLDivElement>(null);
@@ -84,76 +81,128 @@ export default function LandingPage() {
     featuresRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // NavBar's "Features" link points at "/#features" — pick up that hash on
-  // arrival (or when clicked while already here) and finish the scroll once
-  // the layout has settled.
-  useEffect(() => {
-    if (location.hash === "#features") {
-      requestAnimationFrame(scrollToFeatures);
-    }
-  }, [location.hash]);
-
   return (
-    <div className="relative min-h-screen w-full bg-[#141414]">
+    <div className="relative min-h-screen w-full bg-white">
       <div className="fixed inset-x-0 top-0 z-20">
         <NavBar />
       </div>
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
-        {activePanel === "chat" && (
+      <div className="relative z-10 flex flex-col items-center px-6 pb-6 pt-32 sm:px-8 sm:pt-36 md:px-12 lg:px-20 xl:px-[120px]">
+        {activePanel === "chat" ? (
           <ChatPanel
             turns={turns}
             isPending={chatMutation.isPending}
             onSend={submitQuestion}
             onClose={closePanel}
           />
+        ) : (
+          <CandidateHero
+            onSubmit={submitQuestion}
+            onChipPrompt={(question) => submitQuestion(question, null)}
+            onChipLink={(to) => navigate(to)}
+          />
         )}
-        {activePanel === null && <InitialPrompt onSubmit={submitQuestion} />}
+
+        {activePanel === null && (
+          <button
+            type="button"
+            onClick={scrollToFeatures}
+            aria-label="See what's included"
+            className="mt-8 flex flex-col items-center gap-1 text-black/30 transition-colors hover:text-black/60"
+          >
+            <span className="font-grotesk text-xs">See what's included</span>
+            <ChevronDown className="h-4 w-4 animate-bounce" />
+          </button>
+        )}
       </div>
       <FeaturesSection ref={featuresRef} />
     </div>
   );
 }
 
+function FeatureGrid({ eyebrow, features }: { eyebrow: string; features: Feature[] }) {
+  return (
+    <div>
+      <p className="font-grotesk text-xs font-semibold uppercase tracking-wide text-accent-soft">{eyebrow}</p>
+      <div className="mt-4 grid grid-cols-1 divide-y divide-black/10 border-t border-black/10 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+        {features.map((feature) => (
+          <div key={feature.title} className="flex flex-col gap-2 px-1 py-6 sm:px-6">
+            <feature.icon className="h-4 w-4 text-black/60" />
+            <h3 className="font-grotesk text-sm font-semibold text-black">{feature.title}</h3>
+            <p className="text-sm text-black/60">{feature.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FeaturesSection({ ref }: { ref: Ref<HTMLDivElement> }) {
   return (
-    <div
-      ref={ref}
-      className="relative z-10 scroll-mt-24 px-6 py-24 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]"
-    >
-      <div className="mx-auto max-w-5xl">
-        <h2 className="text-center font-fustat text-3xl font-bold tracking-[-1px] text-white sm:text-4xl">
+    <div ref={ref} className="relative z-10 scroll-mt-24 px-6 pb-24 pt-10 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
+      <div className="mx-auto max-w-4xl">
+        <h2 className="text-center font-fustat text-3xl font-bold tracking-[-1px] text-black sm:text-4xl">
           Everything you need, in one place
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-sm text-white/60">
-          Intervu pairs an AI resume reviewer with the tools to find and track your next role.
+        <p className="mx-auto mt-3 max-w-xl text-center text-sm text-black/60">
+          Intervu's AI resume assistant helps you put your best resume forward, then tracks every application from search to offer.
         </p>
 
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((feature) => (
-            <div key={feature.title} className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white">
-                <feature.icon className="h-4 w-4" />
-              </div>
-              <h3 className="mt-4 font-grotesk text-sm font-semibold text-white">{feature.title}</h3>
-              <p className="mt-1.5 text-sm text-white/60">{feature.description}</p>
-            </div>
-          ))}
+        <div className="mt-12">
+          <FeatureGrid eyebrow="AI resume assistant" features={CANDIDATE_FEATURES} />
         </div>
       </div>
     </div>
   );
 }
 
-function InitialPrompt({ onSubmit }: { onSubmit: (text: string, resume: File | null) => void }) {
+function ChipGrid({ chips, onChipPrompt, onChipLink }: {
+  chips: PromptChip[];
+  onChipPrompt?: (question: string) => void;
+  onChipLink: (to: string) => void;
+}) {
+  return (
+    <div className="mt-4 grid w-full max-w-[520px] grid-cols-2 gap-2">
+      {chips.map((chip) => (
+        <button
+          key={chip.label}
+          type="button"
+          onClick={() => {
+            if (chip.kind === "prompt") onChipPrompt?.(chip.question);
+            else onChipLink(chip.to);
+          }}
+          className="flex items-center justify-center gap-1 rounded-full border border-black/10 bg-black/[0.03] px-3.5 py-1.5 text-center font-grotesk text-xs text-black/60 transition-colors hover:border-accent/40 hover:text-black"
+        >
+          <span className="truncate">{chip.label}</span>
+          {chip.kind !== "prompt" && <ArrowRight className="h-3 w-3 shrink-0" />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CandidateHero({
+  onSubmit,
+  onChipPrompt,
+  onChipLink,
+}: {
+  onSubmit: (text: string, resume: File | null) => void;
+  onChipPrompt: (question: string) => void;
+  onChipLink: (to: string) => void;
+}) {
   return (
     <div className="flex w-full flex-col items-center">
-      <h1 className="text-center font-fustat text-3xl leading-tight font-bold tracking-[-1px] text-white sm:text-4xl sm:tracking-[-1.5px]">
+      <h1 className="text-center font-fustat text-3xl leading-tight font-bold tracking-[-1px] text-black sm:text-4xl sm:tracking-[-1.5px]">
         What resume are we perfecting today?
       </h1>
+      <p className="mt-3 max-w-md text-center text-sm text-black/50">
+        Get AI-grounded resume feedback, then track every application from search to offer — all in one place.
+      </p>
 
-      <div className="mt-[28px] w-full">
+      <div className="mt-8 w-full">
         <ChatInput onSubmit={onSubmit} />
       </div>
+
+      <ChipGrid chips={CANDIDATE_CHIPS} onChipPrompt={onChipPrompt} onChipLink={onChipLink} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiJson } from "../../lib/api";
+import type { Paginated } from "../../lib/pagination";
 
 export type ApplicationStatus =
   | "Applied"
@@ -36,13 +37,14 @@ export type Application = {
   feedback_recommendation: string | null;
 };
 
-export type ApplicationFilters = { q?: string; status?: string; sort?: "asc" | "desc" };
+export type ApplicationFilters = { q?: string; status?: string; sort?: "asc" | "desc"; page?: number };
 
 function buildApplicationsQueryString(filters: ApplicationFilters) {
   const params = new URLSearchParams();
   if (filters.q) params.set("q", filters.q);
   if (filters.status) params.set("status", filters.status);
   if (filters.sort) params.set("sort", filters.sort);
+  if (filters.page) params.set("page", String(filters.page));
   return params.toString();
 }
 
@@ -50,28 +52,55 @@ export function useApplicationsQuery(filters: ApplicationFilters) {
   return useQuery({
     queryKey: ["applications", "list", filters],
     queryFn: () =>
-      apiFetch<Application[]>(`/api/applications?${buildApplicationsQueryString(filters)}`),
+      apiFetch<Paginated<Application>>(`/api/applications?${buildApplicationsQueryString(filters)}`),
   });
 }
 
 // Candidate-only lookup of which jobs they've already applied to, used by
 // JobsPage to show "Applied" vs "Apply". Disabled entirely for non-candidates.
+// Requests a large page size since this just builds an ID membership set,
+// not a user-facing paginated list.
 export function useAppliedJobIdsQuery(enabled: boolean) {
   return useQuery({
     queryKey: ["applications", "appliedJobIds"],
     queryFn: async () => {
-      const apps = await apiFetch<Application[]>("/api/applications");
-      return new Set(apps.map((a) => a.job_id).filter((id): id is number => id !== null));
+      const { items } = await apiFetch<Paginated<Application>>("/api/applications?pageSize=1000");
+      return new Set(items.map((a) => a.job_id).filter((id): id is number => id !== null));
     },
     enabled,
+  });
+}
+
+export type Notification = {
+  applicationId: number;
+  company: string;
+  title: string;
+  status: ApplicationStatus;
+  kind: "applied" | "status_changed";
+  occurredAt: string;
+};
+
+// Refetches periodically so the count/dropdown pick up a recruiter's
+// status change without the candidate needing to reload the page.
+export function useNotificationsQuery(enabled: boolean) {
+  return useQuery({
+    queryKey: ["applications", "notifications"],
+    queryFn: () => apiFetch<Notification[]>("/api/applications/notifications"),
+    enabled,
+    refetchInterval: 60_000,
   });
 }
 
 export function useApplyToJobMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (jobId: number) =>
-      apiJson("/api/applications", "POST", { jobId }, "Couldn't apply. Try again."),
+    mutationFn: ({ jobId, resumeId }: { jobId: number; resumeId?: number | null }) =>
+      apiJson(
+        "/api/applications",
+        "POST",
+        resumeId ? { jobId, resumeId } : { jobId },
+        "Couldn't apply. Try again.",
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
     },

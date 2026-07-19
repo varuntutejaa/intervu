@@ -5,3 +5,5 @@ dist/
 .DS_Store
 .vscode/
 backend/data/
+backend/knowledge/small/
+backend/knowledge/large/

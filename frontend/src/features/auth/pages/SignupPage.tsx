@@ -41,11 +41,11 @@ function PasswordStrengthBar({ password }: { password: string }) {
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full ${i < strength ? STRENGTH_COLORS[strength] : "bg-white/10"}`}
+            className={`h-1 flex-1 rounded-full ${i < strength ? STRENGTH_COLORS[strength] : "bg-black/10"}`}
           />
         ))}
       </div>
-      <p className="mt-1.5 text-xs text-white/40">{STRENGTH_LABELS[strength]}</p>
+      <p className="mt-1.5 text-xs text-black/40">{STRENGTH_LABELS[strength]}</p>
     </div>
   );
 }
@@ -121,10 +121,10 @@ export default function SignupPage() {
         />
       ) : step === "verify" ? (
         <div>
-          <h2 className="text-3xl font-medium tracking-tight text-white">Check your email</h2>
-          <p className="mt-2 text-sm text-white/40">
+          <h2 className="text-3xl font-medium tracking-tight text-black">Check your email</h2>
+          <p className="mt-2 text-sm text-black/40">
             Enter the verification code we sent to{" "}
-            <span className="text-white">{submittedEmail}</span>.
+            <span className="text-black">{submittedEmail}</span>.
           </p>
 
           <form onSubmit={confirmForm.handleSubmit(onSubmitVerify)} className="mt-7 space-y-4">
@@ -144,13 +144,13 @@ export default function SignupPage() {
             />
 
             {confirmMutation.error && (
-              <p className="text-sm text-red-400">{confirmMutation.error.message}</p>
+              <p className="text-sm text-red-600">{confirmMutation.error.message}</p>
             )}
 
             <button
               type="submit"
               disabled={confirmMutation.isPending || loginMutation.isPending}
-              className="mt-1 h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-1 h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {confirmMutation.isPending || loginMutation.isPending ? "Verifying…" : "Verify"}
             </button>
@@ -159,7 +159,7 @@ export default function SignupPage() {
           <button
             type="button"
             onClick={() => resendCodeMutation.mutate(submittedEmail)}
-            className="mt-4 text-xs font-medium text-white/40 underline underline-offset-2 transition-colors hover:text-white"
+            className="mt-4 text-xs font-medium text-black/40 underline underline-offset-2 transition-colors hover:text-black"
           >
             {resendCodeMutation.isPending ? "Resending…" : "Resend code"}
           </button>
@@ -170,16 +170,16 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setPendingRole(null)}
-              className="text-xs font-medium text-white/40 underline underline-offset-2 transition-colors hover:text-white"
+              className="text-xs font-medium text-black/40 underline underline-offset-2 transition-colors hover:text-black"
             >
               Change role
             </button>
-            <h2 className="mt-3 text-3xl font-medium tracking-tight text-white">
+            <h2 className="mt-3 text-3xl font-medium tracking-tight text-black">
               {pendingRole === "candidate"
                 ? "Create your candidate account"
                 : "Create your recruiter account"}
             </h2>
-            <p className="mt-2 text-sm text-white/40">
+            <p className="mt-2 text-sm text-black/40">
               Input your basic details to begin the journey.
             </p>
           </div>
@@ -238,16 +238,16 @@ export default function SignupPage() {
               control={signupForm.control}
               render={({ field }) => (
                 <div>
-                  <label className="text-sm font-medium text-white">Confirm password</label>
+                  <label className="text-sm font-medium text-black">Confirm password</label>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={field.value}
                     onChange={field.onChange}
-                    className="mt-2 h-11 w-full rounded-xl border-none bg-brand-gray px-4 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    className="mt-2 h-11 w-full rounded-xl border-none bg-brand-gray px-4 text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
                   />
                   {signupForm.formState.errors.confirmPassword && (
-                    <p className="mt-1.5 text-xs text-red-400">
+                    <p className="mt-1.5 text-xs text-red-600">
                       {signupForm.formState.errors.confirmPassword.message}
                     </p>
                   )}
@@ -256,13 +256,13 @@ export default function SignupPage() {
             />
 
             {signupMutation.error && (
-              <p className="text-sm text-red-400">{signupMutation.error.message}</p>
+              <p className="text-sm text-red-600">{signupMutation.error.message}</p>
             )}
 
             <button
               type="submit"
               disabled={signupMutation.isPending}
-              className="mt-4 h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-4 h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {signupMutation.isPending ? "Creating account…" : "Create Account"}
             </button>
@@ -270,9 +270,9 @@ export default function SignupPage() {
         </>
       )}
 
-      <p className="text-center text-sm text-white/40">
+      <p className="text-center text-sm text-black/40">
         Already have an account?{" "}
-        <Link to="/login" className="font-medium text-white underline underline-offset-2">
+        <Link to="/login" className="font-medium text-black underline underline-offset-2">
           Log in
         </Link>
       </p>

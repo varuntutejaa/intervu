@@ -30,19 +30,19 @@ export default function ForgotPasswordPage() {
     >
       {sent ? (
         <div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-black">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white">
             <MailCheck className="h-5 w-5" />
           </span>
-          <h2 className="mt-4 text-3xl font-medium tracking-tight text-white">Check your email</h2>
-          <p className="mt-2 text-sm text-white/40">
-            If an account exists for <span className="text-white">{getValues("email")}</span>, we've
+          <h2 className="mt-4 text-3xl font-medium tracking-tight text-black">Check your email</h2>
+          <p className="mt-2 text-sm text-black/40">
+            If an account exists for <span className="text-black">{getValues("email")}</span>, we've
             sent a link to reset your password.
           </p>
         </div>
       ) : (
         <div>
-          <h2 className="text-3xl font-medium tracking-tight text-white">Reset your password</h2>
-          <p className="mt-2 text-sm text-white/40">
+          <h2 className="text-3xl font-medium tracking-tight text-black">Reset your password</h2>
+          <p className="mt-2 text-sm text-black/40">
             Enter your email and we'll send you a reset link.
           </p>
 
@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              className="mt-4 h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+              className="mt-4 h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98]"
             >
               Send reset link
             </button>
@@ -72,8 +72,8 @@ export default function ForgotPasswordPage() {
         </div>
       )}
 
-      <p className="text-center text-sm text-white/40">
-        <Link to="/login" className="font-medium text-white underline underline-offset-2">
+      <p className="text-center text-sm text-black/40">
+        <Link to="/login" className="font-medium text-black underline underline-offset-2">
           Back to log in
         </Link>
       </p>

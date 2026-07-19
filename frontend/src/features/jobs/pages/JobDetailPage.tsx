@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { CompanyLogo } from "../../../components/CompanyLogo";
 import { NavBar } from "../../../components/chrome/NavBar";
 import { formatSalary } from "../../../lib/format";
 import { useSessionQuery } from "../../auth/api";
 import { useAppliedJobIdsQuery, useApplyToJobMutation } from "../../applications/api";
 import { useJobQuery } from "../api";
+import { ResumePickerModal } from "../components/ResumePickerModal";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -17,9 +20,9 @@ function formatDate(value: string) {
 function Parameter({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="flex items-center justify-between border-b border-white/10 py-3 text-sm">
-      <span className="text-white/40">{label}</span>
-      <span className="font-medium text-white">{value}</span>
+    <div className="flex items-center justify-between border-b border-black/10 py-3 text-sm">
+      <span className="text-black/40">{label}</span>
+      <span className="font-medium text-black">{value}</span>
     </div>
   );
 }
@@ -27,9 +30,9 @@ function Parameter({ label, value }: { label: string; value: string | null | und
 function Section({ title, body }: { title: string; body: string | null | undefined }) {
   if (!body) return null;
   return (
-    <div className="mt-8 border-t border-white/10 pt-8 first:mt-0 first:border-t-0 first:pt-0">
-      <h2 className="font-fustat text-xl font-semibold text-white">{title}</h2>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-white/60">{body}</p>
+    <div className="mt-8 border-t border-black/10 pt-8 first:mt-0 first:border-t-0 first:pt-0">
+      <h2 className="font-fustat text-xl font-semibold text-black">{title}</h2>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-black/60">{body}</p>
     </div>
   );
 }
@@ -46,16 +49,21 @@ export default function JobDetailPage() {
   const jobQuery = useJobQuery(jobId);
   const appliedJobIdsQuery = useAppliedJobIdsQuery(role === "candidate");
   const applyMutation = useApplyToJobMutation();
+  const [showResumePicker, setShowResumePicker] = useState(false);
 
   const job = jobQuery.data;
   const appliedJobIds = appliedJobIdsQuery.data ?? new Set<number>();
   const hasApplied = job ? appliedJobIds.has(job.id) : false;
-  const isApplying = applyMutation.isPending && applyMutation.variables === jobId;
+  const isApplying = applyMutation.isPending && applyMutation.variables?.jobId === jobId;
   const applyError =
-    applyMutation.isError && applyMutation.variables === jobId ? applyMutation.error.message : undefined;
+    applyMutation.isError && applyMutation.variables?.jobId === jobId ? applyMutation.error.message : undefined;
+
+  const handleConfirmApply = (resumeId: number | null) => {
+    applyMutation.mutate({ jobId, resumeId }, { onSuccess: () => setShowResumePicker(false) });
+  };
 
   return (
-    <div className="min-h-screen w-full bg-[#141414]">
+    <div className="min-h-screen w-full bg-white">
       <div className="fixed inset-x-0 top-0 z-20">
         <NavBar />
       </div>
@@ -64,47 +72,52 @@ export default function JobDetailPage() {
         <button
           type="button"
           onClick={() => navigate("/jobs")}
-          className="flex items-center gap-1.5 text-sm text-white/50 transition-colors hover:text-white"
+          className="flex items-center gap-1.5 text-sm text-black/50 transition-colors hover:text-black"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to jobs
         </button>
 
-        {!Number.isInteger(jobId) && <p className="mt-6 text-sm text-red-400">Invalid job id.</p>}
+        {!Number.isInteger(jobId) && <p className="mt-6 text-sm text-red-600">Invalid job id.</p>}
 
         {jobQuery.isPending && Number.isInteger(jobId) && (
-          <p className="mt-6 text-sm text-white/50">Loading job…</p>
+          <p className="mt-6 text-sm text-black/50">Loading job…</p>
         )}
         {jobQuery.isError && (
-          <p className="mt-6 text-sm text-red-400">Couldn't load this job. It may have been removed.</p>
+          <p className="mt-6 text-sm text-red-600">Couldn't load this job. It may have been removed.</p>
         )}
 
         {job && (
           <>
-            <div className="mt-6 flex flex-wrap items-baseline gap-x-3">
-              <h1 className="font-fustat text-3xl font-bold text-white sm:text-4xl">{job.title}</h1>
-              {job.status === "closed" && (
-                <span className="text-xs font-medium uppercase tracking-wide text-white/40">Closed</span>
-              )}
+            <div className="mt-6 flex items-start gap-4">
+              <CompanyLogo src={job.company_logo_url} company={job.company} size={56} />
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-3">
+                  <h1 className="font-fustat text-3xl font-bold text-black sm:text-4xl">{job.title}</h1>
+                  {job.status === "closed" && (
+                    <span className="text-xs font-medium uppercase tracking-wide text-black/40">Closed</span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-black/50">
+                  {job.company} · {job.location}
+                  {job.job_code && <span className="text-black/30"> · #{job.job_code}</span>}
+                </p>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-white/50">
-              {job.company} · {job.location}
-              {job.job_code && <span className="text-white/30"> · #{job.job_code}</span>}
-            </p>
 
             <div className="mt-10 grid grid-cols-1 gap-x-16 lg:grid-cols-[1fr_320px]">
               <div className="min-w-0">
                 {(() => {
                   const salary = formatSalary(job.salary_min, job.salary_max);
                   return salary ? (
-                    <p className="text-lg font-semibold text-white">{salary}</p>
+                    <p className="text-lg font-semibold text-black">{salary}</p>
                   ) : null;
                 })()}
 
                 {job.skills.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm text-white/40">
-                      Skills: <span className="text-white/70">{job.skills.join(", ")}</span>
+                    <p className="text-sm text-black/40">
+                      Skills: <span className="text-black/70">{job.skills.join(", ")}</span>
                     </p>
                   </div>
                 )}
@@ -115,7 +128,7 @@ export default function JobDetailPage() {
               </div>
 
               <div className="mt-10 lg:mt-0">
-                <div className="border-t border-white/10">
+                <div className="border-t border-black/10">
                   <Parameter label="Job number" value={job.job_code ? `#${job.job_code}` : null} />
                   <Parameter label="Date posted" value={formatDate(job.created_at)} />
                   <Parameter label="Worksite" value={job.work_mode} />
@@ -129,27 +142,27 @@ export default function JobDetailPage() {
                   />
                 </div>
 
-                {applyError && <p className="mt-4 text-sm text-red-400">{applyError}</p>}
+                {applyError && <p className="mt-4 text-sm text-red-600">{applyError}</p>}
 
                 {job.status === "closed" ? (
-                  <p className="mt-6 text-center text-sm text-white/40">
+                  <p className="mt-6 text-center text-sm text-black/40">
                     This posting is no longer accepting applications.
                   </p>
                 ) : !user ? (
                   <Link
                     to="/login"
-                    className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+                    className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98]"
                   >
                     Log in to apply
                   </Link>
                 ) : role !== "candidate" ? (
-                  <p className="mt-6 text-center text-sm text-white/40">Only candidates can apply to jobs.</p>
+                  <p className="mt-6 text-center text-sm text-black/40">Only candidates can apply to jobs.</p>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => applyMutation.mutate(job.id)}
+                    onClick={() => setShowResumePicker(true)}
                     disabled={hasApplied || isApplying}
-                    className="mt-6 h-12 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-6 h-12 w-full rounded-xl bg-accent font-semibold text-white transition-all hover:bg-accent-soft active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {hasApplied ? "Applied" : isApplying ? "Applying…" : "Apply now"}
                   </button>
@@ -159,6 +172,14 @@ export default function JobDetailPage() {
           </>
         )}
       </div>
+
+      {showResumePicker && (
+        <ResumePickerModal
+          onClose={() => setShowResumePicker(false)}
+          onConfirm={handleConfirmApply}
+          isSubmitting={applyMutation.isPending}
+        />
+      )}
     </div>
   );
 }

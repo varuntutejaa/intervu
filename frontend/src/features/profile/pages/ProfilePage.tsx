@@ -13,6 +13,7 @@ import {
 import { AvatarPicker } from "../components/AvatarPicker";
 import { CandidateProfileFields } from "../components/CandidateProfileFields";
 import { RecruiterProfileFields } from "../components/RecruiterProfileFields";
+import { ResumeLibrarySection } from "../components/ResumeLibrarySection";
 import {
   candidateProfileSchema,
   mergeParsedResumeFields,
@@ -157,28 +158,28 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#141414]">
+    <div className="min-h-screen w-full bg-white">
       <div className="fixed inset-x-0 top-0 z-20">
         <NavBar />
       </div>
 
       <div className="mx-auto max-w-6xl space-y-8 px-6 pb-10 pt-28 sm:px-8 md:px-12 lg:px-16 xl:px-24">
         <div>
-          <h1 className="font-fustat text-3xl font-bold text-white">Your profile</h1>
-          <p className="mt-2 text-sm text-white/40">
+          <h1 className="font-fustat text-3xl font-bold text-black">Your profile</h1>
+          <p className="mt-2 text-sm text-black/40">
             Keep this up to date so your matches stay accurate.
           </p>
         </div>
 
-        {profileQuery.isPending && <p className="text-sm text-white/50">Loading your profile…</p>}
+        {profileQuery.isPending && <p className="text-sm text-black/50">Loading your profile…</p>}
 
         {profileQuery.isError && (
           <div>
-            <p className="text-sm text-red-400">Couldn't load your profile. Is the API running?</p>
+            <p className="text-sm text-red-600">Couldn't load your profile. Is the API running?</p>
             <button
               type="button"
               onClick={() => profileQuery.refetch()}
-              className="mt-3 text-xs font-medium text-white/60 underline underline-offset-2 hover:text-white"
+              className="mt-3 text-xs font-medium text-black/60 underline underline-offset-2 hover:text-black"
             >
               Try again
             </button>
@@ -187,11 +188,11 @@ export default function ProfilePage() {
 
         {profileQuery.isSuccess && profile === null && (
           <div>
-            <h2 className="text-xl font-medium tracking-tight text-white">No profile yet</h2>
-            <p className="mt-2 text-sm text-white/40">You haven't set up your profile yet.</p>
+            <h2 className="text-xl font-medium tracking-tight text-black">No profile yet</h2>
+            <p className="mt-2 text-sm text-black/40">You haven't set up your profile yet.</p>
             <Link
               to="/profile-setup"
-              className="mt-4 inline-flex h-11 items-center rounded-xl bg-white px-5 font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+              className="mt-4 inline-flex h-11 items-center rounded-xl bg-black px-5 font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98]"
             >
               Complete your profile
             </Link>
@@ -201,7 +202,7 @@ export default function ProfilePage() {
         {profile && (
           <>
             <AvatarPicker email={profile.email} avatarUrl={avatarUrl} onChange={setAvatarUrl} />
-            <p className="-mt-4 text-xs text-white/40">
+            <p className="-mt-4 text-xs text-black/40">
               {role === "candidate" ? "Candidate" : "Recruiter"}
             </p>
 
@@ -235,18 +236,20 @@ export default function ProfilePage() {
               )}
 
               {saveProfileMutation.error && (
-                <p className="text-sm text-red-400">{saveProfileMutation.error.message}</p>
+                <p className="text-sm text-red-600">{saveProfileMutation.error.message}</p>
               )}
-              {saved && <p className="text-sm text-emerald-400">Saved.</p>}
+              {saved && <p className="text-sm text-emerald-600">Saved.</p>}
 
               <button
                 type="submit"
                 disabled={saveProfileMutation.isPending}
-                className="h-14 w-full rounded-xl bg-white font-semibold text-black transition-all hover:bg-white/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-14 w-full rounded-xl bg-black font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {saveProfileMutation.isPending ? "Saving…" : "Save changes"}
               </button>
             </form>
+
+            {role === "candidate" && <ResumeLibrarySection />}
           </>
         )}
       </div>

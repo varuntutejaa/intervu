@@ -49,6 +49,9 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS discipline TEXT;
 -- free-form `description` overview.
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS responsibilities TEXT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS qualifications TEXT;
+-- Shown next to the listing/detail view — a URL, not an upload (jobs have
+-- no file-storage need otherwise), so any publicly reachable image works.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS company_logo_url TEXT;
 
 DO $$ BEGIN
   CREATE TYPE application_status AS ENUM ('Applied', 'Interviewing', 'Offer', 'Rejected');
@@ -132,6 +135,12 @@ ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_overall_rating SMALLI
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_strengths TEXT;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_weaknesses TEXT;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS feedback_recommendation TEXT;
+
+-- Tracks when a recruiter last changed status/feedback — applied_on only
+-- ever records the original application date, so there was no way to know
+-- when a candidate's status last moved (needed for the notification bell's
+-- "recruiter responded" events).
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 -- Enforced in the DB, not just checked in the route, so two near-simultaneous
 -- "Apply" submissions can't race past a check-then-insert into two rows.
@@ -233,3 +242,21 @@ BEGIN
   END IF;
 END $$;
 ALTER TABLE profiles DROP COLUMN IF EXISTS skills;
+
+-- A candidate's resume library — separate from profiles.resume_data (which
+-- stays as the single resume used for AI parsing/autofill on the profile
+-- form). This is what lets someone keep multiple named resumes and choose
+-- which one to attach to a given application.
+CREATE TABLE IF NOT EXISTS resumes (
+  id SERIAL PRIMARY KEY,
+  candidate_sub TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  data TEXT NOT NULL,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS resumes_candidate_sub_idx ON resumes (candidate_sub);
+
+-- Snapshots which resume (if any) was actually submitted with this
+-- application — a candidate's library can change after applying, so this
+-- has to be recorded per-application, not looked up live off the profile.
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL;

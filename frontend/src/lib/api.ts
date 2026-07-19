@@ -14,6 +14,17 @@ function extractErrorMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+// Every backend response is wrapped as { success: true, data } (see
+// backend's middleware/responseEnvelope.ts) — unwrap it here, once, so
+// every feature's api.ts keeps consuming the plain resource/list shape it
+// already expects instead of every call site unwrapping `.data` itself.
+function extractData(body: unknown): unknown {
+  if (body && typeof body === "object" && "data" in body) {
+    return (body as { data: unknown }).data;
+  }
+  return body;
+}
+
 const NETWORK_ERROR = "Couldn't reach the server. Is the API running?";
 
 // Every page today hand-rolls this same fetch/parse/error-message dance —
@@ -33,7 +44,7 @@ export async function apiFetch<T>(
 
   const body = await parseBody(res);
   if (!res.ok) throw new Error(extractErrorMessage(body, fallbackError));
-  return body as T;
+  return extractData(body) as T;
 }
 
 export function apiJson<T>(

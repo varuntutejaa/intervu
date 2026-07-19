@@ -6,9 +6,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Role } from "../../types";
 
-export const AURORA_VIDEO_SRC =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260506_081238_406ed0e3-5d83-436e-a512-0bbff7ec5b95.mp4";
-
 const CONTAINER_VARIANTS = {
   hidden: { opacity: 0 },
   visible: {
@@ -37,18 +34,8 @@ export function AuroraShell({
   children: ReactNode;
 }) {
   return (
-    <main className="font-aurora flex min-h-screen w-full bg-black p-2 selection:bg-white/30 transition-all duration-500 lg:h-screen lg:overflow-hidden lg:p-4">
-      <div className="relative hidden h-full w-[52%] flex-col items-center justify-center overflow-hidden rounded-3xl px-12 shadow-2xl lg:flex">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-        >
-          <source src={AURORA_VIDEO_SRC} type="video/mp4" />
-        </video>
-
+    <main className="font-aurora flex min-h-screen w-full bg-white p-2 selection:bg-black/30 transition-all duration-500 lg:h-screen lg:overflow-hidden lg:p-4">
+      <div className="relative hidden h-full w-[52%] flex-col items-center justify-center overflow-hidden rounded-3xl border border-black/10 bg-brand-gray px-12 lg:flex">
         <motion.div
           className="relative z-10 w-full max-w-xs space-y-8"
           initial="hidden"
@@ -56,11 +43,11 @@ export function AuroraShell({
           variants={CONTAINER_VARIANTS}
         >
           <motion.div variants={ITEM_VARIANTS} className="text-center">
-            <Link to="/" className="text-7xl font-bold tracking-tight text-white">
+            <Link to="/" className="text-7xl font-bold tracking-tight text-black">
               {brand}
             </Link>
-            <p className="mt-5 text-xl font-medium tracking-tight text-white">{heroTitle}</p>
-            <p className="mt-3 px-4 text-sm leading-relaxed text-white/60">{heroDescription}</p>
+            <p className="mt-5 text-xl font-medium tracking-tight text-black">{heroTitle}</p>
+            <p className="mt-3 px-4 text-sm leading-relaxed text-black/60">{heroDescription}</p>
           </motion.div>
         </motion.div>
       </div>
@@ -92,8 +79,8 @@ export function AuroraRoleQuestion({
 }) {
   return (
     <>
-      <h2 className="text-3xl font-medium tracking-tight text-white">{title}</h2>
-      <p className="mt-2 text-sm text-white/40">{description}</p>
+      <h2 className="text-3xl font-medium tracking-tight text-black">{title}</h2>
+      <p className="mt-2 text-sm text-black/40">{description}</p>
 
       <div className="mt-2 flex flex-col gap-3">
         <AuroraRoleCard
@@ -128,16 +115,16 @@ function AuroraRoleCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex items-center gap-3.5 rounded-xl bg-brand-gray p-4 text-left transition-colors hover:bg-white/10"
+      className="group flex items-center gap-3.5 rounded-xl bg-brand-gray p-4 text-left transition-colors hover:bg-black/10"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-black">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black text-white">
         <Icon className="h-4.5 w-4.5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-white">{title}</span>
-        <span className="mt-0.5 block text-xs text-white/50">{description}</span>
+        <span className="block text-sm font-semibold text-black">{title}</span>
+        <span className="mt-0.5 block text-xs text-black/50">{description}</span>
       </span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-white/25 transition-transform group-hover:translate-x-0.5 group-hover:text-white/50" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-black/25 transition-transform group-hover:translate-x-0.5 group-hover:text-black/50" />
     </button>
   );
 }
@@ -158,7 +145,7 @@ export function SocialButton({
   href?: string;
 }) {
   const className =
-    "flex h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-black text-sm font-medium text-white transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50";
+    "flex h-11 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white text-sm font-medium text-black transition-colors hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50";
 
   if (href) {
     return (
@@ -200,11 +187,11 @@ export function SocialAuthOptions({ role }: { role?: Role | null }) {
       </div>
 
       <div className="flex items-center">
-        <div className="h-px flex-1 bg-white/10" />
-        <span className="bg-black px-4 text-xs font-medium tracking-widest text-white/40 uppercase">
+        <div className="h-px flex-1 bg-black/10" />
+        <span className="bg-white px-4 text-xs font-medium tracking-widest text-black/40 uppercase">
           Or
         </span>
-        <div className="h-px flex-1 bg-white/10" />
+        <div className="h-px flex-1 bg-black/10" />
       </div>
     </>
   );
@@ -234,7 +221,7 @@ export function PasswordField({
   return (
     <div>
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-white">{label}</label>
+        <label className="text-sm font-medium text-black">{label}</label>
         {labelRight}
       </div>
       <div className="relative mt-2">
@@ -243,21 +230,21 @@ export function PasswordField({
           placeholder="••••••••"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full rounded-xl border-none bg-brand-gray px-4 pr-11 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+          className="h-11 w-full rounded-xl border-none bg-brand-gray px-4 pr-11 text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
         />
         <button
           type="button"
           onClick={() => onToggleShowPassword(!showPassword)}
           aria-label={showPassword ? "Hide password" : "Show password"}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-black/40 transition-colors hover:text-black"
         >
           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
       {error ? (
-        <p className="mt-1.5 text-xs text-red-400">{error}</p>
+        <p className="mt-1.5 text-xs text-red-600">{error}</p>
       ) : (
-        helperText && <p className="mt-1.5 text-xs text-white/30">{helperText}</p>
+        helperText && <p className="mt-1.5 text-xs text-black/30">{helperText}</p>
       )}
       {children}
     </div>
@@ -312,15 +299,15 @@ export function InputGroup({
 }) {
   return (
     <div>
-      <label className="text-sm font-medium text-white">{label}</label>
+      <label className="text-sm font-medium text-black">{label}</label>
       <input
         type={type}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 h-11 w-full rounded-xl border-none bg-brand-gray px-4 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="mt-2 h-11 w-full rounded-xl border-none bg-brand-gray px-4 text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
       />
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
@@ -342,15 +329,15 @@ export function TextAreaGroup({
 }) {
   return (
     <div>
-      <label className="text-sm font-medium text-white">{label}</label>
+      <label className="text-sm font-medium text-black">{label}</label>
       <textarea
         placeholder={placeholder}
         value={value}
         rows={rows}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full resize-none rounded-xl border-none bg-brand-gray px-4 py-3 text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="mt-2 w-full resize-none rounded-xl border-none bg-brand-gray px-4 py-3 text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
       />
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
@@ -372,12 +359,12 @@ export function SelectGroup({
 }) {
   return (
     <div>
-      <label className="text-sm font-medium text-white">{label}</label>
+      <label className="text-sm font-medium text-black">{label}</label>
       <div className="relative mt-2">
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full appearance-none rounded-xl border-none bg-brand-gray px-4 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+          className="h-11 w-full appearance-none rounded-xl border-none bg-brand-gray px-4 pr-10 text-black focus:outline-none focus:ring-2 focus:ring-black/20"
         >
           <option value="" disabled>
             {placeholder}
@@ -388,9 +375,9 @@ export function SelectGroup({
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" />
       </div>
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
@@ -414,7 +401,7 @@ export function FileUploadGroup({
 
   return (
     <div>
-      <label className="text-sm font-medium text-white">{label}</label>
+      <label className="text-sm font-medium text-black">{label}</label>
       <input
         ref={inputRef}
         type="file"
@@ -425,12 +412,12 @@ export function FileUploadGroup({
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-2 flex h-11 w-full items-center gap-2 rounded-xl border-none bg-brand-gray px-4 text-left text-sm text-white/60 transition-colors hover:bg-white/10"
+        className="mt-2 flex h-11 w-full items-center gap-2 rounded-xl border-none bg-brand-gray px-4 text-left text-sm text-black/60 transition-colors hover:bg-black/10"
       >
-        <Upload className="h-4 w-4 shrink-0 text-white/40" />
+        <Upload className="h-4 w-4 shrink-0 text-black/40" />
         <span className="truncate">{file ? file.name : (existingLabel ?? "Choose a file")}</span>
       </button>
-      {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

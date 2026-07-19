@@ -18,10 +18,6 @@ const APPLICATION_STATUSES = [
 ];
 const RECOMMENDATION_OPTIONS = ["Strong Hire", "Hire", "No Hire", "Strong No Hire"];
 
-function initials(email: string) {
-  return email.slice(0, 2).toUpperCase();
-}
-
 export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: Applicant }) {
   const updateApplicantMutation = useUpdateApplicantMutation(jobId);
 
@@ -29,6 +25,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
     control,
     handleSubmit,
     reset,
+    getValues,
     formState: { isDirty },
   } = useForm<ApplicantFeedbackFormValues>({
     resolver: zodResolver(applicantFeedbackSchema),
@@ -65,29 +62,37 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
     }
   };
 
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div className="flex items-start gap-4">
-        {applicant.avatar_url ? (
-          <img
-            src={applicant.avatar_url}
-            alt=""
-            className="h-12 w-12 shrink-0 rounded-full border border-white/10 object-cover"
-          />
-        ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 bg-brand-gray font-grotesk text-sm font-semibold text-white">
-            {initials(applicant.email)}
-          </div>
-        )}
+  // A one-click path to the most common recruiter action, instead of
+  // requiring "open the status dropdown, pick Rejected, then hit Save" for
+  // what's usually a snap decision.
+  const handleReject = async () => {
+    const values = getValues();
+    try {
+      await updateApplicantMutation.mutateAsync({
+        applicationId: applicant.application_id,
+        payload: {
+          status: "Rejected",
+          feedback: {
+            technicalRating: values.technicalRating,
+            communicationRating: values.communicationRating,
+            overallRating: values.overallRating,
+            strengths: values.strengths || null,
+            weaknesses: values.weaknesses || null,
+            recommendation: values.recommendation || null,
+          },
+        },
+      });
+      reset({ ...values, status: "Rejected" });
+    } catch {
+      // surfaced via updateApplicantMutation.error below
+    }
+  };
 
+  return (
+    <div className="rounded-2xl border border-black/10 bg-black/5 p-5">
+      <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <p className="font-fustat text-lg font-semibold text-white">
-              {applicant.full_name || applicant.desired_role || "Candidate"}
-            </p>
-            <p className="text-xs text-white/40">{applicant.email}</p>
-          </div>
-          <p className="text-sm text-white/40">
+          <p className="text-sm text-black/40">
             {[
               applicant.desired_role,
               applicant.location,
@@ -98,14 +103,14 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
               .join(" · ")}
           </p>
           {applicant.phone_number && (
-            <p className="mt-0.5 text-xs text-white/40">{applicant.phone_number}</p>
+            <p className="mt-0.5 text-xs text-black/40">{applicant.phone_number}</p>
           )}
 
-          {applicant.bio && <p className="mt-2 text-sm text-white/70">{applicant.bio}</p>}
+          {applicant.bio && <p className="mt-2 text-sm text-black/70">{applicant.bio}</p>}
           {applicant.technical_skills && applicant.technical_skills.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {applicant.technical_skills.map((skill) => (
-                <span key={skill} className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/60">
+                <span key={skill} className="rounded-full bg-black/10 px-2 py-0.5 text-[11px] text-black/60">
                   {skill}
                 </span>
               ))}
@@ -114,7 +119,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
           {applicant.soft_skills && applicant.soft_skills.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {applicant.soft_skills.map((skill) => (
-                <span key={skill} className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-white/40">
+                <span key={skill} className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] text-black/40">
                   {skill}
                 </span>
               ))}
@@ -127,7 +132,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                 href={applicant.linkedin_url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-white underline underline-offset-2"
+                className="font-medium text-black underline underline-offset-2"
               >
                 LinkedIn
               </a>
@@ -137,7 +142,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                 href={applicant.github_url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-white underline underline-offset-2"
+                className="font-medium text-black underline underline-offset-2"
               >
                 GitHub
               </a>
@@ -147,7 +152,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                 href={applicant.portfolio_url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-white underline underline-offset-2"
+                className="font-medium text-black underline underline-offset-2"
               >
                 Portfolio
               </a>
@@ -156,17 +161,17 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
               <a
                 href={applicant.resume_data}
                 download={applicant.resume_filename ?? "resume"}
-                className="font-medium text-white underline underline-offset-2"
+                className="font-medium text-black underline underline-offset-2"
               >
                 Resume: {applicant.resume_filename ?? "download"}
               </a>
             ) : (
               applicant.resume_filename && (
-                <span className="text-white/40">Resume: {applicant.resume_filename}</span>
+                <span className="text-black/40">Resume: {applicant.resume_filename}</span>
               )
             )}
             {applicant.resume_uploaded_at && (
-              <span className="text-white/30">
+              <span className="text-black/30">
                 Uploaded{" "}
                 {new Date(applicant.resume_uploaded_at).toLocaleDateString(undefined, {
                   month: "short",
@@ -174,7 +179,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                 })}
               </span>
             )}
-            <span className="text-white/30">
+            <span className="text-black/30">
               Applied{" "}
               {new Date(applicant.applied_on).toLocaleDateString(undefined, {
                 month: "short",
@@ -184,9 +189,9 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="mt-4 rounded-xl border border-black/10 bg-white/20 p-4">
               <div className="flex flex-wrap items-center gap-3">
-                <label className="text-xs font-medium text-white/50">Status</label>
+                <label className="text-xs font-medium text-black/50">Status</label>
                 <Controller
                   name="status"
                   control={control}
@@ -194,7 +199,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                     <select
                       value={field.value}
                       onChange={field.onChange}
-                      className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+                      className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-black/20"
                     >
                       {APPLICATION_STATUSES.map((s) => (
                         <option key={s} value={s}>
@@ -204,9 +209,17 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                     </select>
                   )}
                 />
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  disabled={applicant.status === "Rejected" || updateApplicantMutation.isPending}
+                  className="h-9 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Reject candidate
+                </button>
               </div>
 
-              <p className="mt-4 text-xs font-medium text-white/50">Interview feedback</p>
+              <p className="mt-4 text-xs font-medium text-black/50">Interview feedback</p>
               <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Controller
                   name="technicalRating"
@@ -233,7 +246,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
 
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium text-white/50">Strengths</label>
+                  <label className="block text-xs font-medium text-black/50">Strengths</label>
                   <Controller
                     name="strengths"
                     control={control}
@@ -243,13 +256,13 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                         onChange={field.onChange}
                         placeholder="What stood out positively"
                         rows={2}
-                        className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                        className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
                       />
                     )}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-white/50">Weaknesses</label>
+                  <label className="block text-xs font-medium text-black/50">Weaknesses</label>
                   <Controller
                     name="weaknesses"
                     control={control}
@@ -259,7 +272,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                         onChange={field.onChange}
                         placeholder="Areas of concern"
                         rows={2}
-                        className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:ring-2 focus:ring-white/20"
+                        className="mt-1.5 w-full resize-none rounded-lg border-none bg-brand-gray px-3 py-2 text-sm text-black placeholder:text-black/20 focus:outline-none focus:ring-2 focus:ring-black/20"
                       />
                     )}
                   />
@@ -267,7 +280,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="text-xs font-medium text-white/50">Recommendation</label>
+                <label className="text-xs font-medium text-black/50">Recommendation</label>
                 <Controller
                   name="recommendation"
                   control={control}
@@ -275,7 +288,7 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                     <select
                       value={field.value}
                       onChange={field.onChange}
-                      className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+                      className="h-9 rounded-lg border-none bg-brand-gray px-3 text-sm text-black focus:outline-none focus:ring-2 focus:ring-black/20"
                     >
                       <option value="">No recommendation yet</option>
                       {RECOMMENDATION_OPTIONS.map((r) => (
@@ -292,15 +305,15 @@ export function ApplicantCard({ jobId, applicant }: { jobId: number; applicant: 
                 <button
                   type="submit"
                   disabled={!isDirty || updateApplicantMutation.isPending}
-                  className="h-8 rounded-lg bg-white px-3 text-xs font-semibold text-black transition-all hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-8 rounded-lg bg-black px-3 text-xs font-semibold text-white transition-all hover:bg-black/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {updateApplicantMutation.isPending ? "Saving…" : "Save"}
                 </button>
                 {!isDirty && updateApplicantMutation.isSuccess && (
-                  <span className="text-xs text-emerald-400">Saved.</span>
+                  <span className="text-xs text-emerald-600">Saved.</span>
                 )}
                 {updateApplicantMutation.isError && (
-                  <span className="text-xs text-red-400">{updateApplicantMutation.error.message}</span>
+                  <span className="text-xs text-red-600">{updateApplicantMutation.error.message}</span>
                 )}
               </div>
             </div>
