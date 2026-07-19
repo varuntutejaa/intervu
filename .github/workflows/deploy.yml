@@ -33,6 +33,11 @@ jobs:
               sudo swapon /swapfile
             fi
 
+            # Free up disk space before npm ci — the default 8 GB root volume
+            # fills up quickly with onnxruntime GPU binaries and old node_modules.
+            rm -rf node_modules backend/node_modules frontend/node_modules
+            npm cache clean --force 2>/dev/null || true
+
             cd backend
             npm ci
             npm run build

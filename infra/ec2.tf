@@ -91,6 +91,15 @@ resource "aws_instance" "backend" {
   iam_instance_profile   = aws_iam_instance_profile.backend.name
   key_name               = var.ec2_key_pair_name
 
+  # t3.micro defaults to 8 GB — too tight for Node + onnxruntime GPU binaries.
+  # 20 GB gives enough headroom for npm ci, swap, and the running app.
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+    delete_on_termination = true
+    tags = { Name = "${var.project}-${var.environment}-backend-root" }
+  }
+
   # Installs Node + pm2 and clones the repo so the very first
   # .github/workflows/deploy.yml run (git pull, npm ci, npm run build, pm2
   # start) has something to `git pull` into. Nothing app-specific runs
