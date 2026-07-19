@@ -33,10 +33,21 @@ jobs:
               sudo swapon /swapfile
             fi
 
-            # Free up disk space before npm ci — the default 8 GB root volume
-            # fills up quickly with onnxruntime GPU binaries and old node_modules.
+            # Aggressive disk cleanup — the default 8 GB root volume fills up
+            # quickly with onnxruntime GPU binaries, old node_modules, apt cache,
+            # and pm2 logs.
             rm -rf node_modules backend/node_modules frontend/node_modules
             npm cache clean --force 2>/dev/null || true
+            sudo apt-get clean 2>/dev/null || true
+            sudo journalctl --vacuum-time=1d 2>/dev/null || true
+            pm2 flush 2>/dev/null || true
+            # Log disk space for debugging
+            df -h /
+
+            # If the EBS volume was resized (e.g. via Terraform or AWS console),
+            # grow the filesystem to use the new space without rebooting.
+            sudo resize2fs /dev/nvme0n1p1 2>/dev/null || \
+              sudo resize2fs /dev/xvda1 2>/dev/null || true
 
             cd backend
             npm ci
