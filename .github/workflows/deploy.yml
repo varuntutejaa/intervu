@@ -23,6 +23,16 @@ jobs:
             cd ~/intervu
             git fetch origin main
             git reset --hard origin/main
+
+            # t3.micro has only 1 GB RAM — npm ci with native deps gets OOM-killed
+            # without swap. Create a 2 GB swap file if one doesn't already exist.
+            if ! swapon --show | grep -q /swapfile; then
+              sudo fallocate -l 2G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+            fi
+
             cd backend
             npm ci
             npm run build
