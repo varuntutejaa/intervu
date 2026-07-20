@@ -50,7 +50,13 @@ jobs:
               sudo resize2fs /dev/xvda1 2>/dev/null || true
 
             cd backend
-            npm ci
+            # This is a CPU-only instance — the app only ever runs local
+            # embeddings on CPU, never GPU. onnxruntime-node's installer
+            # otherwise always fetches CUDA EP binaries on linux-x64
+            # regardless of whether a GPU is present, which was crashing
+            # here (large download + extraction on a resource-constrained
+            # t3.micro). Skipping it removes an unnecessary point of failure.
+            ONNXRUNTIME_NODE_INSTALL=skip npm ci
             npm run build
             pm2 restart intervu-backend --update-env || pm2 start dist/index.js --name intervu-backend
             pm2 save
