@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { ComponentType, SVGProps } from "react";
-import { ArrowUp, FileText, Mic, Paperclip, Sparkles, X, type LucideIcon } from "lucide-react";
+import { ArrowUp, FileText, Paperclip, Sparkles, X, type LucideIcon } from "lucide-react";
 
 const RESUME_ACCEPT =
   ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -79,7 +79,6 @@ export function ChatInput({
         <div className="flex items-center gap-2">
           {fileInput}
           <IconButton icon={Paperclip} label="Attach resume" onClick={() => fileInputRef.current?.click()} />
-          <IconButton icon={Mic} label="Voice" />
           <input
             type="text"
             value={message}
@@ -145,7 +144,6 @@ export function ChatInput({
               label={resume ? "Change Resume" : "Attach Resume"}
               onClick={() => fileInputRef.current?.click()}
             />
-            <ActionButton icon={Mic} label="Voice" />
           </div>
           <span className="font-grotesk text-xs text-black/40">{message.length}/3,000</span>
         </div>
