@@ -60,7 +60,11 @@ export default function LandingPage() {
   const submitQuestion = async (text: string, resume: File | null) => {
     setTurns((prev) => [...prev, { kind: "user", text, resume }]);
     setActivePanel("chat");
-    setAttachedResume(null);
+    // Deliberately NOT cleared here — the backend has no memory between
+    // requests, so a resume attached once needs to keep riding along with
+    // every follow-up in this conversation, not just the message that
+    // introduced it. It only clears when the conversation itself ends
+    // (closePanel) or the candidate explicitly removes it.
     try {
       const resumeData = resume ? await readFileAsDataUrl(resume) : undefined;
       // A file with no typed question is a valid submission (the UI allows
@@ -80,6 +84,7 @@ export default function LandingPage() {
   const closePanel = () => {
     setActivePanel(null);
     setTurns([]);
+    setAttachedResume(null);
   };
 
   const scrollToFeatures = () => {
