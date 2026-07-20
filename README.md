@@ -371,7 +371,7 @@ frontend/src/
 
 infra/                  # Terraform IaC (VPC/EC2/RDS/S3/CloudFront/IAM — written, not applied, see below)
                          # plus cloudfront-config.json/s3-bucket-policy.json, the actual configs used to create the live resources
-docker-compose.yml       # backend + frontend + local Postgres, for a fully self-contained local run
+docker-compose.yml       # backend + frontend, backend talks to real RDS by default (opt-in local Postgres via --profile local-db)
 .github/workflows/       # ci.yml (lint+typecheck+test+build), deploy.yml (backend to EC2), deploy-frontend.yml (S3 + CloudFront), build-and-push.yml (images to GHCR)
 ```
 
@@ -533,9 +533,15 @@ Unit tests are colocated with the code they cover (`src/**/*.test.ts`) and run a
 docker compose up --build
 ```
 
-Brings up three containers: a local Postgres (`db`), the backend (`Dockerfile`, multi-stage: `tsc` build → slim runtime image), and the frontend (`Dockerfile`, multi-stage: Vite build → nginx, which also reverse-proxies `/api` to the backend container — the same "one origin" shape CloudFront gives in prod). Backend secrets still come from `backend/.env` (`env_file:` in `docker-compose.yml`); only the DB connection is overridden to point at the bundled Postgres instead of RDS.
+Brings up two containers: the backend (`Dockerfile`, multi-stage: `tsc` build → slim runtime image) and the frontend (`Dockerfile`, multi-stage: Vite build → nginx, which also reverse-proxies `/api` to the backend container — the same "one origin" shape CloudFront gives in prod). Backend config comes entirely from `backend/.env` (`env_file:` in `docker-compose.yml`) — by default that means the **real RDS instance**, the same database the live site uses, so the Docker stack shows real data immediately.
 
-First run needs the schema applied and the RAG index built inside the backend container:
+A bundled local Postgres (`db`) is available as an opt-in alternative — fully isolated from production, no RDS credentials needed. It's behind a Compose profile so it doesn't start by default:
+
+```bash
+docker compose --profile local-db up --build
+```
+
+Using it requires overriding the backend's DB env vars back to the local container (`PGHOST=db`, `PGPORT=5432`, `PGDATABASE=intervu`, `PGUSER=postgres`, `PGPASSWORD=postgres`, `DB_SSL=false` — see the comment in `docker-compose.yml`), plus applying the schema and building a RAG index inside the container the first time:
 
 ```bash
 docker compose exec backend node scripts/init-db.mjs
@@ -582,3 +588,4 @@ All three deploy-related workflows also support manual runs via `workflow_dispat
 - Frontend test coverage is intentionally narrow (pure logic + one representative component test) rather than exhaustive — no tests yet for the data-fetching hooks or full page flows
 - `resumesService` (the resume library — list/upload/view/replace/delete) doesn't have a dedicated test file yet, unlike every other service
 - Terraform (`infra/*.tf`) describes the deployment environment but has never been applied — the live infrastructure was provisioned manually, and has since drifted further from what Terraform describes (e.g. the live backend instance's security group is a manually-created one, not `ec2.tf`'s). Adopting Terraform means either importing those existing resources or cutting over to freshly-provisioned ones — not a blind `terraform apply` against what's live today
+- `npm audit` flags a high-severity issue in `adm-zip` (pulled in transitively via `onnxruntime-node` ← `@huggingface/transformers`). It's exercised only inside `onnxruntime-node`'s own install script — unzipping vendor-provided runtime binaries at `npm ci` time — never by this app's request-handling code, so there's no reachable path from user input. The available fix is a breaking downgrade of `@huggingface/transformers`, not applied yet since it's load-bearing for the whole RAG pipeline

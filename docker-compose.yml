@@ -1,7 +1,12 @@
 services:
+  # Not used by default (backend talks to real RDS, see below) — kept as an
+  # opt-in fully-local alternative. Behind a profile so a plain
+  # `docker compose up` doesn't start an unused container; run with
+  # `docker compose --profile local-db up` to include it.
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    profiles: ["local-db"]
     environment:
       POSTGRES_DB: intervu
       POSTGRES_USER: postgres
@@ -22,22 +27,20 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Overrides backend/.env's PGHOST so the container talks to the `db`
-      # service on the compose network instead of a real RDS endpoint —
-      # everything else (credentials, API keys) still comes from .env.
-      PGHOST: db
-      PGPORT: 5432
-      PGDATABASE: intervu
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      DB_SSL: "false"
+      # Talks to the real RDS instance via backend/.env's own
+      # PGHOST/PGUSER/PGPASSWORD/DB_SSL — not the bundled `db` service
+      # below. Only CORS_ORIGIN/PUBLIC_URL are overridden here, since the
+      # frontend is served from this compose stack on :8080, not .env's
+      # dev default of :5174.
+      #
+      # To run fully local instead (no RDS credentials needed, isolated
+      # test data), add back: PGHOST=db, PGPORT=5432, PGDATABASE=intervu,
+      # PGUSER=postgres, PGPASSWORD=postgres, DB_SSL=false — and add
+      # `depends_on: db: condition: service_healthy` below.
       CORS_ORIGIN: http://localhost:8080
       PUBLIC_URL: http://localhost:8080
     ports:
       - "3001:3001"
-    depends_on:
-      db:
-        condition: service_healthy
 
   frontend:
     build: ./frontend
