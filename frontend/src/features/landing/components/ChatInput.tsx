@@ -15,13 +15,19 @@ function formatFileSize(bytes: number) {
 
 export function ChatInput({
   compact = false,
+  resume,
+  onResumeChange,
   onSubmit,
 }: {
   compact?: boolean;
+  // Controlled by the parent (not local state) so a resume attached here
+  // is still there when the parent sends a message some other way — e.g.
+  // clicking a suggested-question chip instead of pressing submit.
+  resume: File | null;
+  onResumeChange: (resume: File | null) => void;
   onSubmit: (text: string, resume: File | null) => void;
 }) {
   const [message, setMessage] = useState("");
-  const [resume, setResume] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canSubmit = message.trim().length > 0 || resume !== null;
@@ -31,7 +37,7 @@ export function ChatInput({
     if (!canSubmit) return;
     onSubmit(message.trim(), resume);
     setMessage("");
-    setResume(null);
+    onResumeChange(null);
   };
 
   const fileInput = (
@@ -42,7 +48,7 @@ export function ChatInput({
       className="hidden"
       onChange={(e) => {
         const file = e.target.files?.[0];
-        if (file) setResume(file);
+        if (file) onResumeChange(file);
         e.target.value = "";
       }}
     />
@@ -58,7 +64,7 @@ export function ChatInput({
       <button
         type="button"
         aria-label="Remove resume"
-        onClick={() => setResume(null)}
+        onClick={() => onResumeChange(null)}
         className="shrink-0 text-black/40 transition-colors hover:text-black"
       >
         <X className="h-3.5 w-3.5" />

@@ -50,12 +50,17 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [activePanel, setActivePanel] = useState<"chat" | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+  // Lifted out of ChatInput so a resume attached before a message is sent
+  // is still there when the send comes from somewhere other than the
+  // input's own submit button — e.g. clicking a suggested-question chip.
+  const [attachedResume, setAttachedResume] = useState<File | null>(null);
   const chatMutation = useChatMutation();
   const featuresRef = useRef<HTMLDivElement>(null);
 
   const submitQuestion = async (text: string, resume: File | null) => {
     setTurns((prev) => [...prev, { kind: "user", text, resume }]);
     setActivePanel("chat");
+    setAttachedResume(null);
     try {
       const resumeData = resume ? await readFileAsDataUrl(resume) : undefined;
       // A file with no typed question is a valid submission (the UI allows
@@ -91,13 +96,17 @@ export default function LandingPage() {
           <ChatPanel
             turns={turns}
             isPending={chatMutation.isPending}
+            resume={attachedResume}
+            onResumeChange={setAttachedResume}
             onSend={submitQuestion}
             onClose={closePanel}
           />
         ) : (
           <CandidateHero
+            resume={attachedResume}
+            onResumeChange={setAttachedResume}
             onSubmit={submitQuestion}
-            onChipPrompt={(question) => submitQuestion(question, null)}
+            onChipPrompt={(question) => submitQuestion(question, attachedResume)}
             onChipLink={(to) => navigate(to)}
           />
         )}
@@ -181,10 +190,14 @@ function ChipGrid({ chips, onChipPrompt, onChipLink }: {
 }
 
 function CandidateHero({
+  resume,
+  onResumeChange,
   onSubmit,
   onChipPrompt,
   onChipLink,
 }: {
+  resume: File | null;
+  onResumeChange: (resume: File | null) => void;
   onSubmit: (text: string, resume: File | null) => void;
   onChipPrompt: (question: string) => void;
   onChipLink: (to: string) => void;
@@ -199,7 +212,7 @@ function CandidateHero({
       </p>
 
       <div className="mt-8 w-full">
-        <ChatInput onSubmit={onSubmit} />
+        <ChatInput resume={resume} onResumeChange={onResumeChange} onSubmit={onSubmit} />
       </div>
 
       <ChipGrid chips={CANDIDATE_CHIPS} onChipPrompt={onChipPrompt} onChipLink={onChipLink} />

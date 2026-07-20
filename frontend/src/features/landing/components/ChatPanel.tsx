@@ -44,11 +44,15 @@ export function PanelShell({ onClose, children }: { onClose: () => void; childre
 export function ChatPanel({
   turns,
   isPending,
+  resume,
+  onResumeChange,
   onSend,
   onClose,
 }: {
   turns: ChatTurn[];
   isPending: boolean;
+  resume: File | null;
+  onResumeChange: (resume: File | null) => void;
   onSend: (text: string, resume: File | null) => void;
   onClose: () => void;
 }) {
@@ -88,8 +92,8 @@ export function ChatPanel({
             }
 
             return (
-              <div key={i} className="mr-auto flex max-w-[75%] flex-col gap-2">
-                <div className="w-fit rounded-2xl rounded-bl-md bg-black/10 px-4 py-2.5 text-sm text-black">
+              <div key={i} className="mr-auto flex max-w-[85%] flex-col gap-2">
+                <div className="w-fit whitespace-pre-wrap rounded-2xl rounded-bl-md bg-black/10 px-4 py-2.5 text-sm leading-relaxed text-black">
                   {turn.text}
                 </div>
                 {turn.citations.length > 0 && (
@@ -116,7 +120,7 @@ export function ChatPanel({
         </div>
 
         <div className="border-t border-black/10 p-4">
-          <ChatInput compact onSubmit={onSend} />
+          <ChatInput compact resume={resume} onResumeChange={onResumeChange} onSubmit={onSend} />
         </div>
       </div>
     </PanelShell>

@@ -26,7 +26,11 @@ the question, reply exactly:
 
 Answer with citations for the reference excerpts, referencing each inline as
 "(Document Name, Page N)". Do not cite the candidate's resume itself — refer
-to it directly (e.g. "your resume").`;
+to it directly (e.g. "your resume").
+
+Format the answer to be scannable, not one dense paragraph: break it into
+short paragraphs (2-3 sentences each) separated by a blank line, and use a
+"-" bullet list when giving multiple distinct suggestions or examples.`;
 
 export function formatContext(chunks: RetrievedChunk[]): string {
   return chunks
