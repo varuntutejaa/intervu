@@ -62,7 +62,7 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 <summary><strong>Auth</strong></summary>
 
 - Email/password via AWS Cognito (email verification flow included); Cognito is the sole system of record for passwords — it hashes and salts them internally, the application never sees or stores a password or its hash
-- Google and GitHub sign-in via direct OAuth 2.0 (no third-party auth service in the loop)
+- Google sign-in via direct OAuth 2.0 (no third-party auth service in the loop)
 - JWT-based auth: the backend signs its own token after login and carries it in an httpOnly cookie — real JWT authentication, not JWT-in-localStorage, and stateless (no server-side session store, so logins survive a backend restart)
 - Role-Based Access Control enforced server-side on every protected route (`requireRole` checks the database, not the JWT claim alone) — hiding a button on the frontend is never the actual gate
 - Role-aware login: signing in as the wrong role for an account routes you to set that role up, rather than silently logging into the wrong context
@@ -117,7 +117,7 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 | Forms | React Hook Form + Zod |
 | Backend | Node.js, Express, TypeScript |
 | Database | PostgreSQL (AWS RDS) |
-| Auth | AWS Cognito (email/password) + direct Google/GitHub OAuth |
+| Auth | AWS Cognito (email/password) + direct Google OAuth |
 | AI Resume Assistant | Groq (chat, OpenAI-compatible API) + `@huggingface/transformers` (local in-process embeddings, `all-MiniLM-L6-v2`), FAISS (`faiss-node`), LangChain text splitters, `pdf-parse` |
 | AI Resume Autofill | Groq structured JSON extraction + `pdf-parse` (shares the Groq client with the assistant above) |
 | Hosting — frontend | AWS S3 (private) behind AWS CloudFront |
@@ -136,7 +136,6 @@ flowchart LR
     EC2 --> RDS[(RDS Postgres)]
     EC2 --> Cognito[AWS Cognito]
     EC2 --> Google[Google OAuth]
-    EC2 --> GitHub[GitHub OAuth]
     EC2 --> Groq[Groq LLM API]
 ```
 
@@ -196,7 +195,7 @@ sequenceDiagram
     end
 ```
 
-Google/GitHub sign-in follows the same shape via a full-page OAuth redirect instead of steps 1–4; either way it lands back on `/`, and the frontend's `HomeRoute` runs the same "does this role have a profile yet" check before deciding where to send them.
+Google sign-in follows the same shape via a full-page OAuth redirect instead of steps 1–4; either way it lands back on `/`, and the frontend's `HomeRoute` runs the same "does this role have a profile yet" check before deciding where to send them.
 
 </details>
 
@@ -438,7 +437,6 @@ All backend configuration lives in `backend/.env` (see `backend/.env.example` fo
 | `COGNITO_REGION`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` | Cognito User Pool app client |
 | `JWT_SECRET` | Random string signing this app's own auth JWT (httpOnly cookie) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth App |
 | `GROQ_API_KEY` | Required for the AI Resume Assistant's chat model and resume-autofill extraction ([console.groq.com/keys](https://console.groq.com/keys), free tier) |
 | `GROQ_CHAT_MODEL` | Chat model for grounded answers and resume extraction (default `llama-3.3-70b-versatile`) |
 | `EMBEDDING_MODEL` | Local sentence-transformer model run in-process via `@huggingface/transformers` (default `Xenova/all-MiniLM-L6-v2`) — changing this requires re-running `npm run ingest` |
@@ -467,8 +465,8 @@ Every response is wrapped in a consistent envelope: `{ success: true, data: <pay
 | POST | `/auth/confirm` | — | Confirm the verification code |
 | POST | `/auth/resend-code` | — | Resend the verification code |
 | POST | `/auth/login` | — | Email/password login |
-| GET | `/auth/google/start`, `/auth/github/start` | — | Kick off OAuth redirect |
-| GET | `/auth/google/callback`, `/auth/github/callback` | — | OAuth callback — resolves to the same account as a password login under the same email (see [Security notes](#security-notes)), sets the auth cookie |
+| GET | `/auth/google/start` | — | Kick off OAuth redirect |
+| GET | `/auth/google/callback` | — | OAuth callback — resolves to the same account as a password login under the same email (see [Security notes](#security-notes)), sets the auth cookie |
 | POST | `/auth/logout` | JWT | Clear the auth cookie |
 | GET | `/auth/me` | JWT | Current user, active role, and all roles the account has |
 | POST | `/auth/switch-role` | JWT | Change which profile (candidate/recruiter) is active |
@@ -518,7 +516,7 @@ Unit tests are colocated with the code they cover (`src/**/*.test.ts`) and run a
 - `resumeService.test.ts` — the AI-extraction sanitizer: bare `linkedin.com/...` URLs get `https://` prepended, an out-of-range experience value is discarded rather than trusted, non-string entries are filtered out of skill arrays
 - `chatService.test.ts` — an attached resume takes priority over a stored one even when logged in, and the stored-resume lookup is never even attempted once an attachment is present
 - `candidatesService.test.ts` — requires the recruiter role before ever querying the repository
-- `profiles.test.ts` — the Google/GitHub OAuth identity-linking fix (`resolveCanonicalSub`), including the case-insensitive email match
+- `profiles.test.ts` — the Google OAuth identity-linking fix (`resolveCanonicalSub`), including the case-insensitive email match
 - `errorHandler.test.ts` — Zod errors, `HttpError`s, and unrecognized errors all map to the right status/shape, and internals never leak in a 500
 - `responseEnvelope.test.ts` — a plain payload and a paginated-list payload both get wrapped as `{ success: true, data }` without altering the inner shape; an already-enveloped error body passes through unchanged instead of getting double-wrapped
 - `pagination.test.ts`, `dataUrl.test.ts` — the pure helpers list pagination and upload-size validation are built on
@@ -567,7 +565,7 @@ All three deploy-related workflows also support manual runs via `workflow_dispat
 - **Password hashing:** passwords never touch the application layer — Cognito is the sole system of record for them and hashes/salts every password internally (industry-standard SRP-based storage); the app never sees, stores, or has access to a password or its hash. Building a second, parallel password store here would be a strictly worse security posture than delegating to Cognito.
 - **JWT authentication:** the backend signs its own JWT after login (`lib/jwt.ts`) and carries it in an `httpOnly`, `sameSite=lax` cookie — `secure` is enabled automatically in production. This is a real, stateless JWT (no server-side session store — a backend restart no longer logs anyone out), while still keeping the XSS protection of `httpOnly` that JWT-in-localStorage gives up.
 - **RBAC enforced server-side:** `requireRole` checks the `profiles` table on every protected request — the frontend hiding a button is a UX nicety, never the actual gate. A recruiter can only see applicants for jobs *they* posted; a candidate can only see their own applications and only their own interview feedback.
-- **Cross-provider identity linking:** Cognito (password) and Google/GitHub (OAuth) each mint their own, unrelated identity for the same person. `resolveCanonicalSub` (`lib/profiles.ts`) resolves an OAuth login to the *existing* account for that email (case-insensitive) if one already has a profile, instead of silently creating a second, disconnected account — the bug this fixed and its regression test are in `lib/profiles.test.ts`.
+- **Cross-provider identity linking:** Cognito (password) and Google (OAuth) each mint their own, unrelated identity for the same person. `resolveCanonicalSub` (`lib/profiles.ts`) resolves an OAuth login to the *existing* account for that email (case-insensitive) if one already has a profile, instead of silently creating a second, disconnected account — the bug this fixed and its regression test are in `lib/profiles.test.ts`.
 - **Input validation:** every route validates against a `zod` schema (`schemas/`) — including server-side resume/avatar upload limits (PDF-only ≤4MB, image-only ≤2MB) that don't just trust whatever the frontend already checked.
 - Every database query is parameterized (no string-built SQL)
 - OAuth client secrets, the Cognito app secret, and the Groq API key never reach the frontend bundle

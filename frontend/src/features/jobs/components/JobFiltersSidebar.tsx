@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Bookmark, X } from "lucide-react";
 
 const EXPERIENCE_OPTIONS = ["Fresher", "1-3 Years", "3-5 Years", "5-10 Years"];
 const WORK_MODE_OPTIONS = ["Onsite", "Remote", "Hybrid"];
@@ -10,6 +10,9 @@ export type JobFacetState = {
   jobType: string[];
   minSalary: string;
   maxSalary: string;
+  // Bookmarking has no backend model (see hooks/useSavedJobs.ts) — this
+  // filters the already-fetched page client-side rather than a server query.
+  savedOnly: boolean;
 };
 
 export const EMPTY_FACETS: JobFacetState = {
@@ -18,6 +21,7 @@ export const EMPTY_FACETS: JobFacetState = {
   jobType: [],
   minSalary: "",
   maxSalary: "",
+  savedOnly: false,
 };
 
 function toggleValue(list: string[], value: string): string[] {
@@ -65,6 +69,9 @@ export function JobFiltersSidebar({
   onClearAll: () => void;
 }) {
   const activeChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(facets.savedOnly
+      ? [{ key: "saved", label: "Saved jobs", onRemove: () => onChange({ ...facets, savedOnly: false }) }]
+      : []),
     ...facets.experience.map((v) => ({
       key: `exp-${v}`,
       label: v,
@@ -133,6 +140,17 @@ export function JobFiltersSidebar({
           </div>
         </div>
       )}
+
+      <label className="flex cursor-pointer items-center gap-2.5 text-sm text-black/70">
+        <input
+          type="checkbox"
+          checked={facets.savedOnly}
+          onChange={(e) => onChange({ ...facets, savedOnly: e.target.checked })}
+          className="h-4 w-4 shrink-0 cursor-pointer rounded border-black/20 text-accent accent-accent focus:ring-accent/40"
+        />
+        <Bookmark className="h-3.5 w-3.5 text-black/40" />
+        Saved jobs only
+      </label>
 
       <CheckboxGroup
         label="Experience level"

@@ -152,7 +152,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS applications_job_candidate_unique
 -- One row per (person, role) — a single login can hold both a candidate and
 -- a recruiter profile at once and switch between them (see activeRole in
 -- the session), keyed by their auth identity's `sub` — a Cognito user pool
--- sub, or "google:<id>"/"github:<id>" for social sign-ins. Candidate and
+-- sub, or "google:<id>" for social sign-in. Candidate and
 -- recruiter fields share one table (nullable columns) since the two field
 -- sets never overlap within a single row.
 DO $$ BEGIN

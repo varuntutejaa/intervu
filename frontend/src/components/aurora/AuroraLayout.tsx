@@ -164,13 +164,13 @@ export function SocialButton({
   );
 }
 
-// Google/Github links plus the "Or" divider — these three always appear
-// together, in this order, across every Aurora auth page. Cognito remains
-// the system of record for email/password; these two are plain links to
-// this server's OAuth kickoff routes, which redirect through the
-// provider's own login page and back to a callback that creates the same
-// kind of session cookie the Cognito login route does. Full page
-// navigations, not a popup, so there's no client-side token handling here.
+// A Google link plus the "Or" divider — these always appear together, in
+// this order, across every Aurora auth page. Cognito remains the system of
+// record for email/password; this is a plain link to this server's OAuth
+// kickoff route, which redirects through Google's own login page and back
+// to a callback that creates the same kind of session cookie the Cognito
+// login route does. A full page navigation, not a popup, so there's no
+// client-side token handling here.
 //
 // `role` is only meaningful on the Login page — it's round-tripped through
 // the OAuth `state` param so the callback can reject signing into an
@@ -181,10 +181,7 @@ export function SocialAuthOptions({ role }: { role?: Role | null }) {
   const suffix = role ? `?role=${role}` : "";
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
-        <SocialButton icon={GoogleLogo} label="Google" href={`/api/auth/google/start${suffix}`} />
-        <SocialButton icon={GithubLogo} label="Github" href={`/api/auth/github/start${suffix}`} />
-      </div>
+      <SocialButton icon={GoogleLogo} label="Google" href={`/api/auth/google/start${suffix}`} />
 
       <div className="flex items-center">
         <div className="h-px flex-1 bg-black/10" />
@@ -270,14 +267,6 @@ export function GoogleLogo({ className }: { className?: string }) {
         fill="#EA4335"
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
       />
-    </svg>
-  );
-}
-
-export function GithubLogo({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1.16-.02-2.11-3.2.7-3.88-1.36-3.88-1.36-.52-1.34-1.28-1.7-1.28-1.7-1.04-.72.08-.7.08-.7 1.16.08 1.76 1.19 1.76 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.67 0-1.25.44-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.79 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.12 3.05.73.8 1.18 1.83 1.18 3.08 0 4.4-2.69 5.37-5.25 5.66.42.36.78 1.08.78 2.17 0 1.57-.01 2.83-.01 3.22 0 .3.2.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z" />
     </svg>
   );
 }

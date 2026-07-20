@@ -1,10 +1,10 @@
 import { FileText, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Citation } from "../api";
-import { ChatInput } from "./ChatInput";
+import { ChatInput, type AttachedResume } from "./ChatInput";
 
 export type ChatTurn =
-  | { kind: "user"; text: string; resume: File | null }
+  | { kind: "user"; text: string; resume: AttachedResume | null }
   | { kind: "assistant"; text: string; citations: Citation[] }
   | { kind: "assistant-error"; text: string };
 
@@ -51,9 +51,9 @@ export function ChatPanel({
 }: {
   turns: ChatTurn[];
   isPending: boolean;
-  resume: File | null;
-  onResumeChange: (resume: File | null) => void;
-  onSend: (text: string, resume: File | null) => void;
+  resume: AttachedResume | null;
+  onResumeChange: (resume: AttachedResume | null) => void;
+  onSend: (text: string, resume: AttachedResume | null) => void;
   onClose: () => void;
 }) {
   return (
@@ -68,7 +68,9 @@ export function ChatPanel({
                     <div className="flex w-fit items-center gap-2 rounded-lg border border-black/10 bg-black/5 px-3 py-2 text-xs text-black">
                       <FileText className="h-3.5 w-3.5 shrink-0 text-black/60" />
                       <span className="truncate">{turn.resume.name}</span>
-                      <span className="shrink-0 text-black/40">{formatFileSize(turn.resume.size)}</span>
+                      {turn.resume.kind === "file" && (
+                        <span className="shrink-0 text-black/40">{formatFileSize(turn.resume.size)}</span>
+                      )}
                     </div>
                   )}
                   {turn.text && (

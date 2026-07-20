@@ -17,9 +17,9 @@ export async function resolveActiveRole(sub: string): Promise<"candidate" | "rec
   return result.rows[0]?.role ?? null;
 }
 
-// Cognito password login and Google/GitHub OAuth each mint their own,
+// Cognito password login and Google OAuth each mint their own,
 // completely unrelated sub for the same person (a Cognito UUID vs.
-// "google:<id>"/"github:<id>") — with nothing to link them, the same email
+// "google:<id>") — with nothing to link them, the same email
 // logging in via a different method looks like a brand-new account with no
 // profile, and gets sent to set one up from scratch instead of landing on
 // the one they already have.

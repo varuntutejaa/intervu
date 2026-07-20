@@ -3,7 +3,7 @@
   "info": {
     "title": "Intervu API",
     "version": "1.0.0",
-    "description": "Job platform API: candidate/recruiter auth, resume management, job postings, applications, and an AI Resume Assistant (RAG). All routes are mounted under /api. Authenticated routes read this app's own signed JWT from an httpOnly cookie set at login. Every response is wrapped in a consistent envelope: {\"success\": true, \"data\": <the schema documented per endpoint below>} on success, or {\"success\": false, \"error\": \"<message>\"} on failure \u2014 the per-endpoint schemas below document the shape of the data field specifically, not the outer envelope. The one exception is GET /api/openapi.json itself, which returns this raw specification document unwrapped so it stays importable as a standalone spec."
+    "description": "Job platform API: candidate/recruiter auth, resume management, job postings, applications, and an AI Resume Assistant (RAG). All routes are mounted under /api. Authenticated routes read this app's own signed JWT from an httpOnly cookie set at login. Every response is wrapped in a consistent envelope: {\"success\": true, \"data\": <the schema documented per endpoint below>} on success, or {\"success\": false, \"error\": \"<message>\"} on failure — the per-endpoint schemas below document the shape of the data field specifically, not the outer envelope. The one exception is GET /api/openapi.json itself, which returns this raw specification document unwrapped so it stays importable as a standalone spec."
   },
   "servers": [
     {
@@ -18,7 +18,7 @@
     },
     {
       "name": "OAuth",
-      "description": "Google/GitHub social login"
+      "description": "Google social login"
     },
     {
       "name": "Profile",
@@ -391,7 +391,7 @@
       },
       "Profile": {
         "type": "object",
-        "description": "Candidate or recruiter profile row \u2014 shape varies by role.",
+        "description": "Candidate or recruiter profile row — shape varies by role.",
         "additionalProperties": true
       }
     },
@@ -457,7 +457,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Register a new account (Cognito) \u2014 sends a confirmation code by email",
+        "summary": "Register a new account (Cognito) — sends a confirmation code by email",
         "requestBody": {
           "required": true,
           "content": {
@@ -570,7 +570,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Email+password login \u2014 sets the httpOnly session cookie",
+        "summary": "Email+password login — sets the httpOnly session cookie",
         "requestBody": {
           "required": true,
           "content": {
@@ -636,7 +636,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Current session \u2014 user, active role, and every role this account has set up",
+        "summary": "Current session — user, active role, and every role this account has set up",
         "security": [
           {
             "cookieAuth": []
@@ -739,42 +739,7 @@
         "tags": [
           "OAuth"
         ],
-        "summary": "Google OAuth callback \u2014 sets the session cookie and redirects home",
-        "responses": {
-          "302": {
-            "description": "Redirect"
-          }
-        }
-      }
-    },
-    "/api/auth/github/start": {
-      "get": {
-        "tags": [
-          "OAuth"
-        ],
-        "summary": "Redirects to GitHub's consent screen",
-        "parameters": [
-          {
-            "name": "role",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/Role"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect"
-          }
-        }
-      }
-    },
-    "/api/auth/github/callback": {
-      "get": {
-        "tags": [
-          "OAuth"
-        ],
-        "summary": "GitHub OAuth callback \u2014 sets the session cookie and redirects home",
+        "summary": "Google OAuth callback — sets the session cookie and redirects home",
         "responses": {
           "302": {
             "description": "Redirect"
@@ -1197,7 +1162,7 @@
         "tags": [
           "Chat"
         ],
-        "summary": "AI Resume Assistant \u2014 RAG-grounded, cited answer. Personalizes against the caller's resume if logged in (or one attached directly).",
+        "summary": "AI Resume Assistant — RAG-grounded, cited answer. Personalizes against the caller's resume if logged in (or one attached directly).",
         "requestBody": {
           "required": true,
           "content": {
@@ -1261,7 +1226,7 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Public jobs board \u2014 search/filter/paginate open postings",
+        "summary": "Public jobs board — search/filter/paginate open postings",
         "parameters": [
           {
             "name": "q",
@@ -1520,7 +1485,7 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Single job detail (public \u2014 works for closed jobs too)",
+        "summary": "Single job detail (public — works for closed jobs too)",
         "parameters": [
           {
             "name": "id",
@@ -1681,7 +1646,7 @@
         "tags": [
           "Jobs"
         ],
-        "summary": "Full detail for a single applicant, including their resume \u2014 fetched on demand, not as part of the list",
+        "summary": "Full detail for a single applicant, including their resume — fetched on demand, not as part of the list",
         "security": [
           {
             "cookieAuth": []
@@ -1887,7 +1852,7 @@
         "tags": [
           "Applications"
         ],
-        "summary": "The current candidate's own applications \u2014 search/filter/sort/paginate",
+        "summary": "The current candidate's own applications — search/filter/sort/paginate",
         "security": [
           {
             "cookieAuth": []
@@ -2096,7 +2061,7 @@
         "tags": [
           "Applications"
         ],
-        "summary": "Edit a manually-logged application (job_id null only \u2014 real postings are recruiter-owned, use /withdraw instead)",
+        "summary": "Edit a manually-logged application (job_id null only — real postings are recruiter-owned, use /withdraw instead)",
         "security": [
           {
             "cookieAuth": []
@@ -2144,7 +2109,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "This application is to a real posting \u2014 only the recruiter can change its status"
+            "description": "This application is to a real posting — only the recruiter can change its status"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -2192,7 +2157,7 @@
         "tags": [
           "Applications"
         ],
-        "summary": "Withdraw an application to a real posting \u2014 preserves the row (and any recruiter feedback) instead of deleting it",
+        "summary": "Withdraw an application to a real posting — preserves the row (and any recruiter feedback) instead of deleting it",
         "security": [
           {
             "cookieAuth": []

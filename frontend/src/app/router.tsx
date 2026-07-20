@@ -48,7 +48,7 @@ function RequireRole({ role }: { role: Role }) {
 // "/" doubles as the recruiter dashboard entry point once logged in, so a
 // recruiter always lands on their dashboard instead of the marketing/chat page.
 //
-// It's also where every OAuth login/signup (Google/GitHub) lands — the
+// It's also where every OAuth login/signup (Google) lands — the
 // backend callback always redirects to PUBLIC_URL (a bare "/"), a full page
 // load, not a client-side navigation. So this is the one place that has to
 // catch "just authenticated but this role has no profile yet" (e.g. a brand

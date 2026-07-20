@@ -24,6 +24,7 @@ function facetsFromParams(params: URLSearchParams): JobFacetState {
     jobType: split("jobType"),
     minSalary: params.get("minSalary") ?? "",
     maxSalary: params.get("maxSalary") ?? "",
+    savedOnly: params.get("saved") === "1",
   };
 }
 
@@ -83,8 +84,11 @@ export default function JobsPage() {
     experience: facets.experience,
     minSalary: facets.minSalary ? Number(facets.minSalary) : undefined,
     maxSalary: facets.maxSalary ? Number(facets.maxSalary) : undefined,
-    page,
-    pageSize: 6,
+    // Saved jobs are filtered client-side (no backend saved_jobs table),
+    // so a single larger page is fetched and paginated locally instead of
+    // asking the server for a page of a filter it doesn't know about.
+    page: facets.savedOnly ? 1 : page,
+    pageSize: facets.savedOnly ? 200 : 6,
   });
   const appliedJobIdsQuery = useAppliedJobIdsQuery(role === "candidate");
   const applyMutation = useApplyToJobMutation();
@@ -95,7 +99,15 @@ export default function JobsPage() {
   const trendingCompaniesQuery = useTrendingCompaniesQuery(4);
   const trendingRolesQuery = useJobsQuery({ page: 1, pageSize: 5 });
 
-  const jobs = jobsQuery.data?.items ?? [];
+  const JOBS_PAGE_SIZE = 6;
+  const fetchedJobs = jobsQuery.data?.items ?? [];
+  const savedFilteredJobs = facets.savedOnly ? fetchedJobs.filter((j) => savedJobs.isSaved(j.id)) : fetchedJobs;
+  const jobs = facets.savedOnly
+    ? savedFilteredJobs.slice((page - 1) * JOBS_PAGE_SIZE, page * JOBS_PAGE_SIZE)
+    : savedFilteredJobs;
+  const jobsTotalPages = facets.savedOnly
+    ? Math.max(1, Math.ceil(savedFilteredJobs.length / JOBS_PAGE_SIZE))
+    : (jobsQuery.data?.totalPages ?? 1);
   const trendingCompanies = trendingCompaniesQuery.data ?? [];
   const trendingRoles = trendingRolesQuery.data?.items ?? [];
   const appliedJobIds = appliedJobIdsQuery.data ?? new Set<number>();
@@ -221,8 +233,14 @@ export default function JobsPage() {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/5 text-black/30">
                 <SearchX className="h-6 w-6" />
               </div>
-              <p className="font-fustat text-base font-semibold text-black">No roles match your filters</p>
-              <p className="max-w-xs text-sm text-black/50">Try widening your search or clearing a few filters.</p>
+              <p className="font-fustat text-base font-semibold text-black">
+                {facets.savedOnly ? "No saved roles yet" : "No roles match your filters"}
+              </p>
+              <p className="max-w-xs text-sm text-black/50">
+                {facets.savedOnly
+                  ? "Tap the bookmark on a role to save it for later."
+                  : "Try widening your search or clearing a few filters."}
+              </p>
               <button
                 type="button"
                 onClick={clearAllFilters}
@@ -251,9 +269,7 @@ export default function JobsPage() {
             </div>
           )}
 
-          {jobsQuery.data && (
-            <Pager page={jobsQuery.data.page} totalPages={jobsQuery.data.totalPages} onPageChange={setPage} />
-          )}
+          {jobsQuery.data && <Pager page={page} totalPages={jobsTotalPages} onPageChange={setPage} />}
 
           {trendingRoles.length > 0 && (
             <div className="mt-14">

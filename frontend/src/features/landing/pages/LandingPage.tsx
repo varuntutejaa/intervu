@@ -1,36 +1,11 @@
-import { useRef, useState } from "react";
-import type { Ref } from "react";
-import { ArrowRight, ChevronDown, ClipboardList, FileText, Sparkles, type LucideIcon } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NavBar } from "../../../components/chrome/NavBar";
 import { readFileAsDataUrl } from "../../../lib/files";
 import { useChatMutation } from "../api";
-import { ChatInput } from "../components/ChatInput";
+import { ChatInput, type AttachedResume } from "../components/ChatInput";
 import { ChatPanel, type ChatTurn } from "../components/ChatPanel";
-
-type Feature = {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-};
-
-const CANDIDATE_FEATURES: Feature[] = [
-  {
-    icon: Sparkles,
-    title: "AI resume review",
-    description: "Ask a question and get instant, AI-powered feedback grounded in real hiring guides.",
-  },
-  {
-    icon: FileText,
-    title: "Resume parsing & autofill",
-    description: "Attach a PDF and we'll pull your skills, experience, and links straight into your profile.",
-  },
-  {
-    icon: ClipboardList,
-    title: "Application tracking",
-    description: "Keep tabs on every application's status, from applied to offer, in one place.",
-  },
-];
 
 // A mix of instantly-run chat prompts and direct links to the other pillars
 // of the product — fills the space below the input and signals, right in
@@ -61,11 +36,10 @@ export default function LandingPage() {
   // Lifted out of ChatInput so a resume attached before a message is sent
   // is still there when the send comes from somewhere other than the
   // input's own submit button — e.g. clicking a suggested-question chip.
-  const [attachedResume, setAttachedResume] = useState<File | null>(null);
+  const [attachedResume, setAttachedResume] = useState<AttachedResume | null>(null);
   const chatMutation = useChatMutation();
-  const featuresRef = useRef<HTMLDivElement>(null);
 
-  const submitQuestion = async (text: string, resume: File | null) => {
+  const submitQuestion = async (text: string, resume: AttachedResume | null) => {
     setTurns((prev) => [...prev, { kind: "user", text, resume }]);
     setActivePanel("chat");
     // Deliberately NOT cleared here — the backend has no memory between
@@ -74,7 +48,7 @@ export default function LandingPage() {
     // introduced it. It only clears when the conversation itself ends
     // (closePanel) or the candidate explicitly removes it.
     try {
-      const resumeData = resume ? await readFileAsDataUrl(resume) : undefined;
+      const resumeData = resume ? (resume.kind === "file" ? await readFileAsDataUrl(resume.file) : resume.data) : undefined;
       // A file with no typed question is a valid submission (the UI allows
       // attach-only) — give the backend a real question to answer instead
       // of sending an empty one, which it correctly rejects.
@@ -93,10 +67,6 @@ export default function LandingPage() {
     setActivePanel(null);
     setTurns([]);
     setAttachedResume(null);
-  };
-
-  const scrollToFeatures = () => {
-    featuresRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
@@ -123,55 +93,6 @@ export default function LandingPage() {
             onChipLink={(to) => navigate(to)}
           />
         )}
-
-        {activePanel === null && (
-          <button
-            type="button"
-            onClick={scrollToFeatures}
-            aria-label="See what's included"
-            className="mt-8 flex flex-col items-center gap-1 text-black/30 transition-colors hover:text-black/60"
-          >
-            <span className="font-grotesk text-xs">See what's included</span>
-            <ChevronDown className="h-4 w-4 animate-bounce" />
-          </button>
-        )}
-      </div>
-      <FeaturesSection ref={featuresRef} />
-    </div>
-  );
-}
-
-function FeatureGrid({ eyebrow, features }: { eyebrow: string; features: Feature[] }) {
-  return (
-    <div>
-      <p className="font-grotesk text-xs font-semibold uppercase tracking-wide text-accent-soft">{eyebrow}</p>
-      <div className="mt-4 grid grid-cols-1 divide-y divide-black/10 border-t border-black/10 sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
-        {features.map((feature) => (
-          <div key={feature.title} className="flex flex-col gap-2 px-1 py-6 sm:px-6">
-            <feature.icon className="h-4 w-4 text-black/60" />
-            <h3 className="font-grotesk text-sm font-semibold text-black">{feature.title}</h3>
-            <p className="text-sm text-black/60">{feature.description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FeaturesSection({ ref }: { ref: Ref<HTMLDivElement> }) {
-  return (
-    <div ref={ref} className="relative z-10 scroll-mt-24 px-6 pb-24 pt-10 sm:px-8 md:px-12 lg:px-20 xl:px-[120px]">
-      <div className="mx-auto max-w-4xl">
-        <h2 className="text-center font-fustat text-3xl font-bold tracking-[-1px] text-black sm:text-4xl">
-          Everything you need, in one place
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-center text-sm text-black/60">
-          Intervu's AI resume assistant helps you put your best resume forward, then tracks every application from search to offer.
-        </p>
-
-        <div className="mt-12">
-          <FeatureGrid eyebrow="AI resume assistant" features={CANDIDATE_FEATURES} />
-        </div>
       </div>
     </div>
   );
@@ -209,9 +130,9 @@ function CandidateHero({
   onChipPrompt,
   onChipLink,
 }: {
-  resume: File | null;
-  onResumeChange: (resume: File | null) => void;
-  onSubmit: (text: string, resume: File | null) => void;
+  resume: AttachedResume | null;
+  onResumeChange: (resume: AttachedResume | null) => void;
+  onSubmit: (text: string, resume: AttachedResume | null) => void;
   onChipPrompt: (question: string) => void;
   onChipLink: (to: string) => void;
 }) {

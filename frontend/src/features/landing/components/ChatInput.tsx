@@ -1,11 +1,19 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { ComponentType, SVGProps } from "react";
-import { ArrowUp, FileText, Paperclip, Sparkles, X, type LucideIcon } from "lucide-react";
+import { ArrowUp, FileText, FolderOpen, Paperclip, Sparkles, X, type LucideIcon } from "lucide-react";
+import { ResumeLibraryPickerModal } from "./ResumeLibraryPickerModal";
 
 const RESUME_ACCEPT =
   ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const MAX_MESSAGE_LENGTH = 3000;
+
+// Either a file picked fresh off disk, or one already sitting in the
+// candidate's resume library (see features/resumes) — either way it
+// resolves to the same resumeData string before hitting the API.
+export type AttachedResume =
+  | { kind: "file"; file: File; name: string; size: number }
+  | { kind: "library"; id: number; name: string; data: string };
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,11 +31,12 @@ export function ChatInput({
   // Controlled by the parent (not local state) so a resume attached here
   // is still there when the parent sends a message some other way — e.g.
   // clicking a suggested-question chip instead of pressing submit.
-  resume: File | null;
-  onResumeChange: (resume: File | null) => void;
-  onSubmit: (text: string, resume: File | null) => void;
+  resume: AttachedResume | null;
+  onResumeChange: (resume: AttachedResume | null) => void;
+  onSubmit: (text: string, resume: AttachedResume | null) => void;
 }) {
   const [message, setMessage] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canSubmit = message.trim().length > 0 || resume !== null;
@@ -48,7 +57,7 @@ export function ChatInput({
       className="hidden"
       onChange={(e) => {
         const file = e.target.files?.[0];
-        if (file) onResumeChange(file);
+        if (file) onResumeChange({ kind: "file", file, name: file.name, size: file.size });
         e.target.value = "";
       }}
     />
@@ -59,7 +68,7 @@ export function ChatInput({
       <div className="flex min-w-0 items-center gap-2 text-xs text-black">
         <FileText className="h-3.5 w-3.5 shrink-0 text-black/60" />
         <span className="truncate">{resume.name}</span>
-        <span className="shrink-0 text-black/40">{formatFileSize(resume.size)}</span>
+        {resume.kind === "file" && <span className="shrink-0 text-black/40">{formatFileSize(resume.size)}</span>}
       </div>
       <button
         type="button"
@@ -72,13 +81,22 @@ export function ChatInput({
     </div>
   );
 
+  const libraryModal = libraryOpen && (
+    <ResumeLibraryPickerModal
+      onClose={() => setLibraryOpen(false)}
+      onPick={(picked) => onResumeChange({ kind: "library", ...picked })}
+    />
+  );
+
   if (compact) {
     return (
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        {libraryModal}
         {resumeChip}
         <div className="flex items-center gap-2">
           {fileInput}
           <IconButton icon={Paperclip} label="Attach resume" onClick={() => fileInputRef.current?.click()} />
+          <IconButton icon={FolderOpen} label="Attach from library" onClick={() => setLibraryOpen(true)} />
           <input
             type="text"
             value={message}
@@ -106,6 +124,7 @@ export function ChatInput({
     // specifically so it reads as the AI-forward surface, distinct from
     // every plain rounded-gray box elsewhere (nav search included).
     <div className="mx-auto w-full max-w-[640px] rounded-2xl bg-gradient-to-r from-accent/50 via-accent-soft/25 to-accent/50 p-px shadow-[0_0_40px_-12px_var(--color-accent)]">
+      {libraryModal}
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-[15px] bg-[#f7f7f8] p-3">
         <div className="flex items-center justify-between px-1 font-grotesk text-xs font-medium text-black/60">
           <span>Ask about your resume</span>
@@ -141,9 +160,10 @@ export function ChatInput({
             {fileInput}
             <ActionButton
               icon={Paperclip}
-              label={resume ? "Change Resume" : "Attach Resume"}
+              label={resume?.kind === "file" ? "Change Resume" : "Attach Resume"}
               onClick={() => fileInputRef.current?.click()}
             />
+            <ActionButton icon={FolderOpen} label="From Library" onClick={() => setLibraryOpen(true)} />
           </div>
           <span className="font-grotesk text-xs text-black/40">{message.length}/3,000</span>
         </div>

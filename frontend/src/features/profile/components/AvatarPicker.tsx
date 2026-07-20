@@ -60,7 +60,7 @@ export function AvatarPicker({
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-black">{email}</p>
-        <p className="text-xs text-black/40">Profile picture (optional)</p>
+        <p className="text-xs text-black/40">Profile picture (optional) — max 2MB</p>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
