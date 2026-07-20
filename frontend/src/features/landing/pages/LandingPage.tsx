@@ -40,10 +40,18 @@ const CANDIDATE_FEATURES: Feature[] = [
 type PromptChip = { label: string } & ({ kind: "prompt"; question: string } | { kind: "link"; to: string });
 
 const CANDIDATE_CHIPS: PromptChip[] = [
+  {
+    kind: "prompt",
+    label: "How can I improve my resume for a Backend Developer role?",
+    question: "How can I improve my resume for a Backend Developer role?",
+  },
   { kind: "prompt", label: "Is my resume ATS friendly?", question: "Is my resume ATS friendly?" },
-  { kind: "prompt", label: "What skills am I missing?", question: "What skills am I missing for this role?" },
-  { kind: "link", label: "Browse open roles", to: "/jobs" },
-  { kind: "link", label: "Track my applications", to: "/applications" },
+  { kind: "prompt", label: "What backend skills am I missing?", question: "What backend skills am I missing?" },
+  {
+    kind: "prompt",
+    label: "Why is my resume weak for cloud engineering roles?",
+    question: "Why is my resume weak for cloud engineering roles?",
+  },
 ];
 
 export default function LandingPage() {
@@ -175,7 +183,7 @@ function ChipGrid({ chips, onChipPrompt, onChipLink }: {
   onChipLink: (to: string) => void;
 }) {
   return (
-    <div className="mt-4 grid w-full max-w-[520px] grid-cols-2 gap-2">
+    <div className="mt-4 flex w-full max-w-[640px] flex-col gap-2">
       {chips.map((chip) => (
         <button
           key={chip.label}
@@ -184,9 +192,9 @@ function ChipGrid({ chips, onChipPrompt, onChipLink }: {
             if (chip.kind === "prompt") onChipPrompt?.(chip.question);
             else onChipLink(chip.to);
           }}
-          className="flex items-center justify-center gap-1 rounded-full border border-black/10 bg-black/[0.03] px-3.5 py-1.5 text-center font-grotesk text-xs text-black/60 transition-colors hover:border-accent/40 hover:text-black"
+          className="flex items-center justify-between gap-2 rounded-2xl border border-black/10 bg-black/[0.03] px-4 py-2.5 text-left font-grotesk text-xs text-black/60 transition-colors hover:border-accent/40 hover:text-black"
         >
-          <span className="truncate">{chip.label}</span>
+          <span>{chip.label}</span>
           {chip.kind !== "prompt" && <ArrowRight className="h-3 w-3 shrink-0" />}
         </button>
       ))}
