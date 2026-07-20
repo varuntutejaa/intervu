@@ -4,8 +4,10 @@
 
 **AI-native job platform** connecting candidates and recruiters — resume-driven job matching, a two-sided application pipeline, an AI resume assistant grounded in real hiring guides, and one account that can hold both a candidate and a recruiter identity at once.
 
+[![CI](https://github.com/varuntutejaa/intervu/actions/workflows/ci.yml/badge.svg)](https://github.com/varuntutejaa/intervu/actions/workflows/ci.yml)
 [![Deploy Backend](https://github.com/varuntutejaa/intervu/actions/workflows/deploy.yml/badge.svg)](https://github.com/varuntutejaa/intervu/actions/workflows/deploy.yml)
 [![Deploy Frontend](https://github.com/varuntutejaa/intervu/actions/workflows/deploy-frontend.yml/badge.svg)](https://github.com/varuntutejaa/intervu/actions/workflows/deploy-frontend.yml)
+[![Build and Push Images](https://github.com/varuntutejaa/intervu/actions/workflows/build-and-push.yml/badge.svg)](https://github.com/varuntutejaa/intervu/actions/workflows/build-and-push.yml)
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-149ECA?style=flat-square&logo=react&logoColor=white)
@@ -71,7 +73,7 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 <summary><strong>Candidates</strong></summary>
 
 - Guided profile setup — basic info, professional info, technical/soft skills as real tags, LinkedIn/GitHub/portfolio links, resume — with an **AI autofill** option that reads an uploaded resume and pre-fills the whole form (see [AI resume parsing & autofill](#ai-resume-parsing--autofill))
-- Resume upload, view, replace, and delete, with an upload-timestamp shown alongside it
+- A real **resume library** — upload multiple named resumes, view/replace/delete any of them individually, and pick which one to attach when applying to a job (not a single replaceable file)
 - Job board with search plus job type / work mode / experience / salary filters
 - One-click apply with a full job-detail view (description, skills, deadline)
 - Application tracker: applications to jobs posted on Intervu and applications made elsewhere (manually logged with company/position/date) live in one list
@@ -120,7 +122,9 @@ Intervu is a full-stack job platform with two distinct experiences behind one lo
 | AI Resume Autofill | Groq structured JSON extraction + `pdf-parse` (shares the Groq client with the assistant above) |
 | Hosting — frontend | AWS S3 (private) behind AWS CloudFront |
 | Hosting — backend | AWS EC2 (Ubuntu) + Nginx reverse proxy + PM2 |
-| CI/CD | GitHub Actions (separate backend/frontend deploy workflows) |
+| CI/CD | GitHub Actions — lint/typecheck/test/build gate on every push+PR, separate backend/frontend deploy workflows, and a Docker image build+push to GHCR on every merge to `main` |
+| Containerization | Docker (multi-stage builds for both backend and frontend) + Docker Compose for a fully self-contained local run |
+| Infrastructure as code | Terraform (`infra/`) — VPC, EC2, RDS, S3 + CloudFront, least-privilege IAM |
 
 ## Architecture
 
@@ -149,14 +153,15 @@ services/       Business logic — validation (Zod), authorization checks, orche
 repositories/   The only files that call pool.query() — raw SQL, nothing else
 ```
 
-A request that fails anywhere in that chain throws (a Zod `ZodError`, or an `HttpError(status, message)` from `lib/httpError.ts`) and `asyncHandler` forwards it to one global error-handling middleware (`middleware/errorHandler.ts`) — every error response is `{ error: string }` with the right status code, and unexpected errors always collapse to a generic 500 rather than leaking internals.
+A request that fails anywhere in that chain throws (a Zod `ZodError`, or an `HttpError(status, message)` from `lib/httpError.ts`) and `asyncHandler` forwards it to one global error-handling middleware (`middleware/errorHandler.ts`), which maps it to the right status code. Unexpected errors always collapse to a generic 500 rather than leaking internals.
 
 Other cross-cutting pieces:
 
+- **Consistent response envelope** — `middleware/responseEnvelope.ts` wraps every successful `res.json(...)` call as `{ success: true, data: <payload> }` and every error as `{ success: false, error: string }`, so the frontend has exactly one shape to unwrap (`extractData` in `lib/api.ts`) regardless of which route or controller produced the response. It's a `res.json` patch registered once as middleware, not something every controller opts into individually.
 - **Structured request logging** via `pino`/`pino-http` — one JSON line per request (method, path, status, duration, request id) in production, pretty-printed in dev. Resume/avatar payloads and auth cookies are redacted from logs.
 - **Input validation** — every route validates its body/query against a `zod` schema in `schemas/`, including server-side resume/avatar upload limits (PDF-only, ≤4MB; image-only, ≤2MB) that don't rely on the frontend's own checks, since those are trivially bypassed by calling the API directly.
-- **Pagination** — every list endpoint (`/jobs`, `/jobs/mine`, `/candidates`, `/applications`) accepts `?page=`/`?pageSize=` (default 20, max 100) and returns `{ items, page, pageSize, total, totalPages }`.
-- **API docs** — a full OpenAPI 3.0 spec (`backend/openapi.json`) is served as interactive docs at `/api/docs` (Swagger UI) and as raw JSON at `/api/openapi.json` — importable directly into Postman.
+- **Pagination** — every list endpoint (`/jobs`, `/jobs/mine`, `/candidates`, `/applications`) accepts `?page=`/`?pageSize=` (default 20, max 100) and returns `{ items, page, pageSize, total, totalPages }` as the `data` payload. (`/resumes` is a flat list — a candidate's resume library is small enough that paginating it would be pure overhead.)
+- **API docs** — a full OpenAPI 3.0 spec (`backend/openapi.json`) is served as interactive docs at `/api/docs` (Swagger UI) and as raw JSON at `/api/openapi.json` — importable directly into Postman. Registered *before* `responseEnvelope` so the raw spec itself stays unwrapped.
 
 ## Key flows
 
@@ -368,7 +373,7 @@ frontend/src/
 infra/                  # Terraform IaC (VPC/EC2/RDS/S3/CloudFront/IAM — written, not applied, see below)
                          # plus cloudfront-config.json/s3-bucket-policy.json, the actual configs used to create the live resources
 docker-compose.yml       # backend + frontend + local Postgres, for a fully self-contained local run
-.github/workflows/       # ci.yml (lint+typecheck+test+build on every push/PR), deploy.yml (backend to EC2), deploy-frontend.yml (S3 + CloudFront)
+.github/workflows/       # ci.yml (lint+typecheck+test+build), deploy.yml (backend to EC2), deploy-frontend.yml (S3 + CloudFront), build-and-push.yml (images to GHCR)
 ```
 
 </details>
@@ -449,6 +454,8 @@ All backend configuration lives in `backend/.env` (see `backend/.env.example` fo
 
 All routes are mounted under `/api`. JWT-authenticated routes read this app's own signed JWT from an httpOnly cookie set at login (see [Security notes](#security-notes)); role-gated routes 403 if the account doesn't have that profile — checked against the database on every request, not just the JWT claim. Every `GET` list endpoint accepts `?page=`/`?pageSize=` and returns `{ items, page, pageSize, total, totalPages }`.
 
+Every response is wrapped in a consistent envelope: `{ success: true, data: <payload> }` on success, `{ success: false, error: string }` on failure — the tables below describe the shape of `data`/the resource itself, not the outer wrapper. (`/api/openapi.json` and `/api/docs` are the one exception — they're registered before the envelope middleware, so they stay a raw, standalone-importable spec.)
+
 **Full interactive reference (request/response schemas, try-it-out): `/api/docs`** (Swagger UI, generated from `backend/openapi.json`, also importable directly into Postman).
 
 <details>
@@ -469,6 +476,11 @@ All routes are mounted under `/api`. JWT-authenticated routes read this app's ow
 | POST | `/profile` | JWT | Create/update a profile for a given role |
 | DELETE | `/profile/resume` | Candidate | Remove the candidate's uploaded resume |
 | POST | `/resume/parse` | JWT | AI resume autofill — `{ resumeData }` in, extracted `{ fields }` out; see [AI resume parsing & autofill](#ai-resume-parsing--autofill) |
+| GET | `/resumes` | Candidate | List the current candidate's resume library |
+| POST | `/resumes` | Candidate | Upload a new resume to the library (`201`) |
+| GET | `/resumes/:id` | Candidate (owner) | Fetch one resume's full data (used by "View") |
+| PUT | `/resumes/:id` | Candidate (owner) | Replace a resume's file in place, keeping its `id` (used by "Replace") |
+| DELETE | `/resumes/:id` | Candidate (owner) | Remove a resume from the library |
 | GET | `/jobs` | — | Public, paginated job listing (search + type/mode/experience/location filters) |
 | GET | `/jobs/mine` | Recruiter | Jobs posted by the current account, paginated |
 | GET | `/jobs/stats` | Recruiter | Own posting stats plus platform-wide candidate/resume/company/interview figures |
@@ -508,6 +520,7 @@ Unit tests are colocated with the code they cover (`src/**/*.test.ts`) and run a
 - `candidatesService.test.ts` — requires the recruiter role before ever querying the repository
 - `profiles.test.ts` — the Google/GitHub OAuth identity-linking fix (`resolveCanonicalSub`), including the case-insensitive email match
 - `errorHandler.test.ts` — Zod errors, `HttpError`s, and unrecognized errors all map to the right status/shape, and internals never leak in a 500
+- `responseEnvelope.test.ts` — a plain payload and a paginated-list payload both get wrapped as `{ success: true, data }` without altering the inner shape; an already-enveloped error body passes through unchanged instead of getting double-wrapped
 - `pagination.test.ts`, `dataUrl.test.ts` — the pure helpers list pagination and upload-size validation are built on
 
 **Frontend** (Vitest + jsdom + React Testing Library):
@@ -539,7 +552,9 @@ Frontend: `http://localhost:8080`. Backend directly: `http://localhost:3001` (do
 
 **Frontend** — `deploy-frontend.yml` builds the Vite app and syncs it to a private S3 bucket on every push to `main` touching `frontend/**`, then invalidates the CloudFront cache. The S3 bucket has no public access — it's only reachable through CloudFront via an Origin Access Control.
 
-Both workflows also support manual runs via `workflow_dispatch` from the Actions tab. Neither deploy workflow gates on tests — `ci.yml` is the actual quality gate (lint, typecheck, `vitest`, and a full build for both backend and frontend), running on every push and pull request, deploy or not.
+**Images** — `build-and-push.yml` builds both Dockerfiles and pushes `ghcr.io/varuntutejaa/intervu-backend` and `ghcr.io/varuntutejaa/intervu-frontend` (tagged `latest` and the commit SHA) to GitHub Container Registry on every push to `main`, authenticated with the repo's own `GITHUB_TOKEN` — no extra registry credentials to manage. This is independent of the EC2/S3 deploy path above (which ships code directly, not an image) — it exists so the app can be run anywhere Docker runs, not just on this specific EC2 box.
+
+All three deploy-related workflows also support manual runs via `workflow_dispatch` from the Actions tab. None of them gate on tests — `ci.yml` is the actual quality gate (lint, typecheck, `vitest`, and a full build for both backend and frontend), running on every push and pull request, deploy or not.
 
 ## Infrastructure as code
 
@@ -567,4 +582,5 @@ Both workflows also support manual runs via `workflow_dispatch` from the Actions
 - The AI Resume Assistant's embedding model (~90MB) downloads on first use and is cached under the backend's `node_modules/.cache` — the first `npm run ingest` or `/api/chat` call after a fresh install will be slower while that download happens
 - Resume personalization in `/api/chat` re-extracts and re-parses the candidate's PDF on every chat request rather than caching the extracted text — fine at this scale, but a repeat cost worth caching if usage grows
 - Frontend test coverage is intentionally narrow (pure logic + one representative component test) rather than exhaustive — no tests yet for the data-fetching hooks or full page flows
-- Terraform (`infra/*.tf`) describes the deployment environment but has never been applied — the live infrastructure was provisioned manually; adopting Terraform means either importing those existing resources or cutting over to freshly-provisioned ones
+- `resumesService` (the resume library — list/upload/view/replace/delete) doesn't have a dedicated test file yet, unlike every other service
+- Terraform (`infra/*.tf`) describes the deployment environment but has never been applied — the live infrastructure was provisioned manually, and has since drifted further from what Terraform describes (e.g. the live backend instance's security group is a manually-created one, not `ec2.tf`'s). Adopting Terraform means either importing those existing resources or cutting over to freshly-provisioned ones — not a blind `terraform apply` against what's live today
