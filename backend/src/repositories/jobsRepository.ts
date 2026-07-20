@@ -3,6 +3,12 @@ import { pool } from "../lib/db.js";
 export const JOB_FIELDS =
   "id, title, company, location, job_type, work_mode, experience, salary_min, salary_max, description, skills, application_deadline, job_code, status, created_at, travel, discipline, responsibilities, qualifications, company_logo_url";
 
+// Only used on read paths that actually display a count (list/detail) — not
+// worth the subquery on write paths (create/update RETURNING), where the
+// count would always just be 0 or unchanged.
+const JOB_FIELDS_WITH_APPLICANT_COUNT =
+  `${JOB_FIELDS}, (SELECT count(*)::int FROM applications a WHERE a.job_id = jobs.id) AS applicant_count`;
+
 export interface JobFilters {
   q?: string;
   // Comma-separated lists (e.g. "Remote,Hybrid") — split into a real array
@@ -80,7 +86,7 @@ export async function findJobs(filters: JobFilters, limit: number, offset: numbe
   const { where, params } = buildPublicWhere(filters);
   params.push(limit, offset);
   const result = await pool.query(
-    `SELECT ${JOB_FIELDS} FROM jobs WHERE ${where} ORDER BY id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    `SELECT ${JOB_FIELDS_WITH_APPLICANT_COUNT} FROM jobs WHERE ${where} ORDER BY id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   );
   return result.rows;
@@ -130,7 +136,7 @@ export async function findJobsByRecruiter(sub: string, q: string | undefined, li
   const { where, params } = buildRecruiterJobsWhere(sub, q);
   params.push(limit, offset);
   const result = await pool.query(
-    `SELECT ${JOB_FIELDS} FROM jobs WHERE ${where} ORDER BY id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    `SELECT ${JOB_FIELDS_WITH_APPLICANT_COUNT} FROM jobs WHERE ${where} ORDER BY id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params,
   );
   return result.rows;
@@ -143,7 +149,7 @@ export async function countJobsByRecruiter(sub: string, q: string | undefined): 
 }
 
 export async function findJobById(id: number) {
-  const result = await pool.query(`SELECT ${JOB_FIELDS} FROM jobs WHERE id = $1`, [id]);
+  const result = await pool.query(`SELECT ${JOB_FIELDS_WITH_APPLICANT_COUNT} FROM jobs WHERE id = $1`, [id]);
   return result.rows[0] ?? null;
 }
 

@@ -23,7 +23,8 @@ export function JobCard({
   onOpen: () => void;
 }) {
   const salary = formatSalary(job.salary_min, job.salary_max);
-  const meta = [job.company, job.work_mode, job.location, salary, formatRelativeTime(job.created_at)]
+  const applicants = `${job.applicant_count} ${job.applicant_count === 1 ? "applicant" : "applicants"}`;
+  const meta = [job.company, job.work_mode, job.location, salary, formatRelativeTime(job.created_at), applicants]
     .filter(Boolean)
     .join(" • ");
 

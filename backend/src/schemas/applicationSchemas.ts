@@ -17,7 +17,10 @@ export const listApplicationsQuerySchema = z.object({
 // error messages instead of a combined union error.
 export const jobApplicationSchema = z.object({
   jobId: z.coerce.number({ message: "Invalid jobId." }).int({ message: "Invalid jobId." }).positive({ message: "Invalid jobId." }),
-  resumeId: z.coerce.number().int().positive().optional(),
+  resumeId: z.coerce
+    .number({ message: "Pick a resume to apply with." })
+    .int({ message: "Pick a resume to apply with." })
+    .positive({ message: "Pick a resume to apply with." }),
 });
 
 export const manualApplicationSchema = z.object({

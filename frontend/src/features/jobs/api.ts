@@ -23,6 +23,7 @@ export type Job = {
   responsibilities: string | null;
   qualifications: string | null;
   company_logo_url: string | null;
+  applicant_count: number;
 };
 
 export type JobStats = {

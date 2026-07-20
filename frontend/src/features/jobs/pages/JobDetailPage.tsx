@@ -58,7 +58,7 @@ export default function JobDetailPage() {
   const applyError =
     applyMutation.isError && applyMutation.variables?.jobId === jobId ? applyMutation.error.message : undefined;
 
-  const handleConfirmApply = (resumeId: number | null) => {
+  const handleConfirmApply = (resumeId: number) => {
     applyMutation.mutate({ jobId, resumeId }, { onSuccess: () => setShowResumePicker(false) });
   };
 
@@ -101,6 +101,10 @@ export default function JobDetailPage() {
                 <p className="mt-2 text-sm text-black/50">
                   {job.company} · {job.location}
                   {job.job_code && <span className="text-black/30"> · #{job.job_code}</span>}
+                  <span className="text-black/30">
+                    {" "}
+                    · {job.applicant_count} {job.applicant_count === 1 ? "applicant" : "applicants"}
+                  </span>
                 </p>
               </div>
             </div>

@@ -130,7 +130,7 @@ export default function JobsPage() {
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const handleConfirmApply = (resumeId: number | null) => {
+  const handleConfirmApply = (resumeId: number) => {
     if (pendingApplyJobId === null) return;
     applyMutation.mutate(
       { jobId: pendingApplyJobId, resumeId },

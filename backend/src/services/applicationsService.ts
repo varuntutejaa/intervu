@@ -57,12 +57,10 @@ export async function create(req: Request, rawInput: unknown): Promise<{ status:
     if (!(await applicationsRepo.jobExists(jobId))) {
       throw notFound("That job no longer exists.");
     }
-    if (resumeId !== undefined) {
-      const owner = await findResumeOwner(resumeId);
-      if (owner === undefined) throw notFound("That resume no longer exists.");
-      if (owner !== user.sub) throw forbidden("That's not your resume.");
-    }
-    const applied = await applicationsRepo.insertJobApplication(jobId, user.sub, resumeId ?? null);
+    const owner = await findResumeOwner(resumeId);
+    if (owner === undefined) throw notFound("That resume no longer exists.");
+    if (owner !== user.sub) throw forbidden("That's not your resume.");
+    const applied = await applicationsRepo.insertJobApplication(jobId, user.sub, resumeId);
     return { status: applied ? "applied" : "already_applied" };
   }
 

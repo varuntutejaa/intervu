@@ -98,11 +98,9 @@ describe("applicationsService.create — resume ownership on apply", () => {
     vi.mocked(applicationsRepo.insertJobApplication).mockResolvedValue(true);
   });
 
-  it("applies with no resumeId when none is given", async () => {
-    const result = await create(fakeReq, { jobId: 5 });
-    expect(result).toEqual({ status: "applied" });
-    expect(resumesRepo.findResumeOwner).not.toHaveBeenCalled();
-    expect(applicationsRepo.insertJobApplication).toHaveBeenCalledWith(5, mockUser.sub, null);
+  it("rejects applying to a job with no resumeId", async () => {
+    await expect(create(fakeReq, { jobId: 5 })).rejects.toThrow("Pick a resume to apply with.");
+    expect(applicationsRepo.insertJobApplication).not.toHaveBeenCalled();
   });
 
   it("attaches a resumeId that belongs to this candidate", async () => {

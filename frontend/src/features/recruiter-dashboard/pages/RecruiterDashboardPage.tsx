@@ -202,7 +202,8 @@ export default function RecruiterDashboardPage() {
                         </span>
                       </div>
                       <p className="text-sm text-black/40">
-                        {job.company} · {job.location}
+                        {job.company} · {job.location} · {job.applicant_count}{" "}
+                        {job.applicant_count === 1 ? "applicant" : "applicants"}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {[job.job_type, job.work_mode, job.experience].filter(Boolean).map((tag) => (

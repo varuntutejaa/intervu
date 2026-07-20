@@ -9,7 +9,7 @@ export function ResumePickerModal({
   isSubmitting,
 }: {
   onClose: () => void;
-  onConfirm: (resumeId: number | null) => void;
+  onConfirm: (resumeId: number) => void;
   isSubmitting: boolean;
 }) {
   const resumesQuery = useResumesQuery(true);
@@ -58,7 +58,7 @@ export function ResumePickerModal({
         <div className="mt-5 max-h-64 space-y-2 overflow-y-auto">
           {resumesQuery.isPending && <p className="text-sm text-black/40">Loading your resumes…</p>}
           {resumesQuery.isError && (
-            <p className="text-sm text-red-600">Couldn't load your resumes. You can still apply without one.</p>
+            <p className="text-sm text-red-600">Couldn't load your resumes. Try again, or upload one below.</p>
           )}
           {resumesQuery.isSuccess && resumes.length === 0 && (
             <p className="text-sm text-black/40">You haven't uploaded a resume yet — upload one below.</p>
@@ -113,15 +113,7 @@ export function ResumePickerModal({
         <div className="mt-5 flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => onConfirm(null)}
-            disabled={isSubmitting}
-            className="rounded-full px-4 py-2 text-xs font-medium text-black/50 transition-colors hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Apply without a resume
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(selectedId)}
+            onClick={() => selectedId !== null && onConfirm(selectedId)}
             disabled={isSubmitting || selectedId === null}
             className="rounded-full bg-accent px-5 py-2 text-xs font-semibold text-white transition-colors hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
           >

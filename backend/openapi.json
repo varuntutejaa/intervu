@@ -208,6 +208,9 @@
           "company_logo_url": {
             "type": "string",
             "nullable": true
+          },
+          "applicant_count": {
+            "type": "integer"
           }
         }
       },
@@ -1945,7 +1948,8 @@
                   {
                     "type": "object",
                     "required": [
-                      "jobId"
+                      "jobId",
+                      "resumeId"
                     ],
                     "properties": {
                       "jobId": {
@@ -1953,7 +1957,7 @@
                       },
                       "resumeId": {
                         "type": "integer",
-                        "description": "Which resume from the candidate's library to attach, if any"
+                        "description": "Which resume from the candidate's library to attach — required"
                       }
                     }
                   },
